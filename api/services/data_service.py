@@ -17,6 +17,7 @@ from api.config import (
     BINARY_FEATURES,
     ID_COLUMN,
 )
+from pipeline.feature_engineering import engineer_composite_features
 
 logger = logging.getLogger(__name__)
 
@@ -73,65 +74,22 @@ class DataStore:
             logger.warning("No master CSVs found in %s", PROCESSED_DIR)
 
     def _compute_engineered_features(self) -> None:
-        """Compute reviewer-aligned composite features on the fly."""
+        """Compute reviewer-aligned composite features on the fly.
+
+        Delegates the 7 composite formulas to the shared
+        engineer_composite_features() function, then normalizes extra
+        columns that only exist in the legacy master CSVs.
+        """
         df = self.master_data
 
-        # Total_Volunteer_Hours
+        # Compute 7 composites via shared function (if not already present)
         if "Total_Volunteer_Hours" not in df.columns:
-            med = df.get("Exp_Hour_Volunteer_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            non_med = df.get("Exp_Hour_Volunteer_Non_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            df["Total_Volunteer_Hours"] = med + non_med
+            composites = engineer_composite_features(df)
+            for col in composites.columns:
+                if col != ID_COLUMN:
+                    df[col] = composites[col]
 
-        # Community_Engaged_Ratio
-        if "Community_Engaged_Ratio" not in df.columns:
-            non_med = df.get("Exp_Hour_Volunteer_Non_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            total_vol = df["Total_Volunteer_Hours"]
-            df["Community_Engaged_Ratio"] = np.where(total_vol > 0, non_med / total_vol, 0.0)
-
-        # Clinical_Total_Hours
-        if "Clinical_Total_Hours" not in df.columns:
-            shadow = df.get("Exp_Hour_Shadowing", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            med_emp = df.get("Exp_Hour_Employ_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            df["Clinical_Total_Hours"] = shadow + med_emp
-
-        # Direct_Care_Ratio
-        if "Direct_Care_Ratio" not in df.columns:
-            med_emp = df.get("Exp_Hour_Employ_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-            clin_total = df["Clinical_Total_Hours"]
-            df["Direct_Care_Ratio"] = np.where(clin_total > 0, med_emp / clin_total, 0.0)
-
-        # Adversity_Count
-        if "Adversity_Count" not in df.columns:
-            grit_cols = ["First_Generation_Ind", "Disadvantaged_Ind", "SES_Value", "Pell_Grant", "Fee_Assistance_Program"]
-            adversity = pd.Series(0, index=df.index, dtype=float)
-            for col in grit_cols:
-                if col in df.columns:
-                    adversity = adversity + pd.to_numeric(df[col], errors="coerce").fillna(0)
-            df["Adversity_Count"] = adversity.astype(int)
-
-        # Grit_Index (broader than Adversity_Count)
-        if "Grit_Index" not in df.columns:
-            grit_all = ["First_Generation_Ind", "Disadvantaged_Ind", "SES_Value",
-                         "Pell_Grant", "Fee_Assistance_Program",
-                         "Paid_Employment_BF_18", "Contribution_to_Family", "Childhood_Med_Underserved"]
-            grit_sum = pd.Series(0, index=df.index, dtype=float)
-            for col in grit_all:
-                if col in df.columns:
-                    grit_sum = grit_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
-            df["Grit_Index"] = grit_sum.astype(int)
-
-        # Experience_Diversity
-        if "Experience_Diversity" not in df.columns:
-            exp_flags = [
-                "has_direct_patient_care", "has_volunteering", "has_community_service",
-                "has_shadowing", "has_clinical_experience", "has_leadership",
-                "has_research", "has_military_service", "has_honors",
-            ]
-            div_sum = pd.Series(0, index=df.index, dtype=float)
-            for col in exp_flags:
-                if col in df.columns:
-                    div_sum = div_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
-            df["Experience_Diversity"] = div_sum.astype(int)
+        # --- Extra normalization for legacy master CSV columns ---
 
         # Childhood_Med_Underserved from raw column
         if "Childhood_Med_Underserved" not in df.columns:

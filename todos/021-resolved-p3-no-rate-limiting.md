@@ -1,5 +1,5 @@
 ---
-status: pending
+status: resolved
 priority: P3
 issue_id: 021
 tags: [security, api, hardening]

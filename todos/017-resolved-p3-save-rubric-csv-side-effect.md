@@ -1,5 +1,5 @@
 ---
-status: pending
+status: resolved
 priority: P3
 issue_id: 017
 tags: [side-effect, pipeline, correctness]

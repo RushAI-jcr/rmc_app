@@ -1,8 +1,10 @@
 """Authentication endpoints: login, logout, current user."""
 
+import time
+from collections import defaultdict
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,11 @@ from api.services.audit_service import log_action
 from api.settings import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# Simple in-memory rate limiter for login endpoint
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_RATE_LIMIT = 5  # max attempts
+_RATE_WINDOW = 60  # per 60 seconds
 
 
 class LoginRequest(BaseModel):
@@ -28,7 +35,20 @@ class UserInfo(BaseModel):
 
 
 @router.post("/login")
-def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)) -> dict:
+def login(body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
+    # Rate limit by client IP
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    attempts = _login_attempts[client_ip]
+    # Prune expired entries
+    _login_attempts[client_ip] = [t for t in attempts if now - t < _RATE_WINDOW]
+    if len(_login_attempts[client_ip]) >= _RATE_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again later.",
+        )
+    _login_attempts[client_ip].append(now)
+
     user = db.query(User).filter(User.username == body.username).first()
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(

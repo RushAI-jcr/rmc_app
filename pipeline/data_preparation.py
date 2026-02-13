@@ -605,17 +605,22 @@ def build_secondary_texts_dict(years: list[int]) -> dict[int, str]:
         logger.warning("No secondary essay columns found. Columns: %s", list(sec_df.columns))
         return {}
 
-    result: dict[int, str] = {}
-    for _, row in sec_df.iterrows():
-        amcas_id = int(row[ID_COLUMN])
+    # Vectorized: concatenate essay columns per row using .apply (avoids iterrows)
+    def _concat_essays(row: pd.Series) -> str:
         parts = []
         for col in essay_cols:
-            text = row.get(col)
-            if text is not None and pd.notna(text) and str(text).strip():
+            val = row[col]
+            if pd.notna(val) and str(val).strip():
                 prompt_name = col.replace("_", " ").strip()
-                parts.append(f"[{prompt_name}]\n{str(text).strip()}")
-        if parts:
-            result[amcas_id] = "\n\n---\n\n".join(parts)
+                parts.append(f"[{prompt_name}]\n{str(val).strip()}")
+        return "\n\n---\n\n".join(parts)
+
+    sec_df["_combined"] = sec_df[essay_cols].apply(_concat_essays, axis=1)
+    valid = sec_df["_combined"].str.len() > 0
+    result = dict(zip(
+        sec_df.loc[valid, ID_COLUMN].astype(int),
+        sec_df.loc[valid, "_combined"],
+    ))
 
     logger.info("Loaded %d secondary essay sets", len(result))
     return result

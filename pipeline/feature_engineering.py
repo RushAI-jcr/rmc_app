@@ -36,6 +36,66 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def engineer_composite_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute the 7 reviewer-aligned composite features.
+
+    Shared by FeaturePipeline (training/scoring) and DataStore (API startup).
+    Returns a DataFrame with ID_COLUMN + 7 composite columns.
+    """
+    out = pd.DataFrame()
+    out[ID_COLUMN] = df[ID_COLUMN]
+
+    # Volunteering composites
+    med_vol = df.get("Exp_Hour_Volunteer_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
+    non_med_vol = df.get("Exp_Hour_Volunteer_Non_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
+    out["Total_Volunteer_Hours"] = med_vol + non_med_vol
+    out["Community_Engaged_Ratio"] = np.where(
+        out["Total_Volunteer_Hours"] > 0,
+        non_med_vol / out["Total_Volunteer_Hours"],
+        0.0,
+    )
+
+    # Clinical composites
+    shadowing = df.get("Exp_Hour_Shadowing", pd.Series(0, index=df.index)).fillna(0).astype(float)
+    med_employ = df.get("Exp_Hour_Employ_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
+    out["Clinical_Total_Hours"] = shadowing + med_employ
+    out["Direct_Care_Ratio"] = np.where(
+        out["Clinical_Total_Hours"] > 0,
+        med_employ / out["Clinical_Total_Hours"],
+        0.0,
+    )
+
+    # Adversity count
+    grit_cols = ["First_Generation_Ind", "Disadvantaged_Ind", "SES_Value", "Pell_Grant", "Fee_Assistance_Program"]
+    adversity_sum = pd.Series(0, index=df.index, dtype=float)
+    for col in grit_cols:
+        if col in df.columns:
+            adversity_sum = adversity_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
+    out["Adversity_Count"] = adversity_sum.astype(int)
+
+    # Grit Index (broader)
+    grit_extra = ["Paid_Employment_BF_18", "Contribution_to_Family", "Childhood_Med_Underserved"]
+    grit_total = adversity_sum.copy()
+    for col in grit_extra:
+        if col in df.columns:
+            grit_total = grit_total + pd.to_numeric(df[col], errors="coerce").fillna(0)
+    out["Grit_Index"] = grit_total.astype(int)
+
+    # Experience Diversity
+    exp_flag_cols = [
+        "has_direct_patient_care", "has_volunteering", "has_community_service",
+        "has_shadowing", "has_clinical_experience", "has_leadership",
+        "has_research", "has_military_service", "has_honors",
+    ]
+    diversity_sum = pd.Series(0, index=df.index, dtype=float)
+    for col in exp_flag_cols:
+        if col in df.columns:
+            diversity_sum = diversity_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
+    out["Experience_Diversity"] = diversity_sum.astype(int)
+
+    return out
+
+
 def _to_binary(series: pd.Series) -> pd.Series:
     """Convert a column to 0/1 integer, handling Yes/No strings."""
     if series.dtype in (int, float, np.int64, np.float64):
@@ -107,6 +167,7 @@ class FeaturePipeline:
 
         # Build feature column list by transforming training data
         features_df = self._transform_impl(df)
+        self._fitted_transform_result = features_df  # Cache for fit_transform()
         self.feature_columns_ = [c for c in features_df.columns if c != ID_COLUMN]
 
         # Guard: ensure no protected attributes leaked in
@@ -252,60 +313,8 @@ class FeaturePipeline:
         return features
 
     def _engineer_composites(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create reviewer-aligned composite features."""
-        out = pd.DataFrame()
-        out[ID_COLUMN] = df[ID_COLUMN]
-
-        # Volunteering composites
-        med_vol = df.get("Exp_Hour_Volunteer_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-        non_med_vol = df.get("Exp_Hour_Volunteer_Non_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-        out["Total_Volunteer_Hours"] = med_vol + non_med_vol
-        out["Community_Engaged_Ratio"] = np.where(
-            out["Total_Volunteer_Hours"] > 0,
-            non_med_vol / out["Total_Volunteer_Hours"],
-            0.0,
-        )
-
-        # Clinical composites
-        shadowing = df.get("Exp_Hour_Shadowing", pd.Series(0, index=df.index)).fillna(0).astype(float)
-        med_employ = df.get("Exp_Hour_Employ_Med", pd.Series(0, index=df.index)).fillna(0).astype(float)
-        out["Clinical_Total_Hours"] = shadowing + med_employ
-        out["Direct_Care_Ratio"] = np.where(
-            out["Clinical_Total_Hours"] > 0,
-            med_employ / out["Clinical_Total_Hours"],
-            0.0,
-        )
-
-        # Adversity count
-        grit_cols = ["First_Generation_Ind", "Disadvantaged_Ind", "SES_Value", "Pell_Grant", "Fee_Assistance_Program"]
-        adversity_sum = pd.Series(0, index=df.index, dtype=float)
-        for col in grit_cols:
-            if col in df.columns:
-                adversity_sum = adversity_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
-        out["Adversity_Count"] = adversity_sum.astype(int)
-
-        # Grit Index (broader)
-        grit_extra = ["Paid_Employment_BF_18", "Contribution_to_Family", "Childhood_Med_Underserved"]
-        grit_total = adversity_sum.copy()
-        for col in grit_extra:
-            if col in df.columns:
-                grit_total = grit_total + pd.to_numeric(df[col], errors="coerce").fillna(0)
-        out["Grit_Index"] = grit_total.astype(int)
-
-        # Experience Diversity
-        exp_flag_cols = [
-            "has_direct_patient_care", "has_volunteering", "has_community_service",
-            "has_shadowing", "has_clinical_experience", "has_leadership",
-            "has_research", "has_military_service", "has_honors",
-        ]
-        diversity_sum = pd.Series(0, index=df.index, dtype=float)
-        for col in exp_flag_cols:
-            if col in df.columns:
-                diversity_sum = diversity_sum + pd.to_numeric(df[col], errors="coerce").fillna(0)
-        out["Experience_Diversity"] = diversity_sum.astype(int)
-
-        logger.info("Engineered 7 composite features for %d applicants", len(out))
-        return out
+        """Create reviewer-aligned composite features. Delegates to module-level function."""
+        return engineer_composite_features(df)
 
     def _extract_binary_flags(self, df: pd.DataFrame) -> pd.DataFrame:
         """Extract the 9 binary experience flags already derived during ingestion."""
