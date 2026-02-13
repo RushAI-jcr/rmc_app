@@ -23,15 +23,8 @@ from pipeline.config import (
     SCORE_BUCKET_THRESHOLDS,
     TIER_LABELS,
 )
-from pipeline.data_ingestion import build_unified_dataset
-from pipeline.data_cleaning import clean_dataset
-from pipeline.feature_engineering import (
-    extract_structured_features,
-    engineer_composite_features,
-    extract_binary_flags,
-    load_rubric_features,
-    combine_feature_sets,
-)
+from pipeline.data_preparation import prepare_dataset
+from pipeline.feature_engineering import FeaturePipeline
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +55,9 @@ def score_new_cycle(
 
     Steps:
       1. Ingest (10%): load xlsx files into a unified DataFrame
-      2. Clean (40%): apply data cleaning
-      3. Features (60%): extract structured + engineered + binary flag features
-      4. ML Score (80%): load pre-trained model, predict scores
-      5. Triage (100%): assign tiers, save output
+      2. Features (40%): load fitted FeaturePipeline, transform data
+      3. ML Score (80%): load pre-trained model, predict scores
+      4. Triage (100%): assign tiers, save output
 
     Args:
         data_dir: Directory containing the uploaded xlsx files.
@@ -84,9 +76,8 @@ def score_new_cycle(
     logger.info("Step 1: Ingesting data for cycle %d from %s", cycle_year, data_dir)
     cb("ingestion", 0)
 
-    df = build_unified_dataset(
+    df = prepare_dataset(
         years=[cycle_year],
-        exclude_zero_scores=False,
         data_dir=data_dir,
         file_map=file_map,
     )
@@ -94,41 +85,36 @@ def score_new_cycle(
     logger.info("Ingested %d applicants", applicant_count)
     cb("ingestion", 10)
 
-    # --- Step 2: Clean ---
-    logger.info("Step 2: Cleaning data")
-    cb("cleaning", 10)
-    df = clean_dataset(df)
-    cb("cleaning", 40)
+    # --- Step 2: Features ---
+    logger.info("Step 2: Extracting features")
+    cb("features", 10)
 
-    # --- Step 3: Features ---
-    logger.info("Step 3: Extracting features")
+    # Load fitted feature pipeline from training
+    pipeline_path = MODELS_DIR / "feature_pipeline.joblib"
+    if pipeline_path.exists():
+        feature_pipe = FeaturePipeline.load(pipeline_path)
+    else:
+        # Fallback: try Plan A pipeline
+        pipeline_a_path = MODELS_DIR / "feature_pipeline_A.joblib"
+        if pipeline_a_path.exists():
+            feature_pipe = FeaturePipeline.load(pipeline_a_path)
+        else:
+            # No saved pipeline — create one on the fly (no rubric)
+            logger.warning("No saved FeaturePipeline found, creating one on the fly")
+            feature_pipe = FeaturePipeline(
+                include_rubric=rubric_scores_path is not None,
+                rubric_path=rubric_scores_path or (CACHE_DIR / "rubric_scores.json"),
+            )
+            feature_pipe.fit(df)
+
+    features_df = feature_pipe.transform(df)
+    feature_cols = feature_pipe.feature_columns_
+
     cb("features", 40)
 
-    structured = extract_structured_features(df)
-    engineered = engineer_composite_features(df)
-    binary_flags = extract_binary_flags(df)
-
-    # Load rubric scores if available
-    rubric_df = None
-    rpath = rubric_scores_path or (CACHE_DIR / "rubric_scores.json")
-    if rpath.exists():
-        rubric_df = load_rubric_features(rpath)
-        if rubric_df.empty:
-            rubric_df = None
-            logger.info("Rubric scores empty, proceeding without them")
-        else:
-            logger.info("Loaded rubric scores for %d applicants", len(rubric_df))
-
-    if rubric_df is not None:
-        features_df = combine_feature_sets(structured, engineered, binary_flags, rubric_df)
-    else:
-        features_df = combine_feature_sets(structured, engineered, binary_flags)
-
-    cb("features", 60)
-
-    # --- Step 4: ML Score ---
-    logger.info("Step 4: Loading model and predicting scores")
-    cb("ml_scoring", 60)
+    # --- Step 3: ML Score ---
+    logger.info("Step 3: Loading model and predicting scores")
+    cb("ml_scoring", 40)
 
     model_path = MODELS_DIR / model_pkl
     if not model_path.exists():
@@ -151,12 +137,6 @@ def score_new_cycle(
     model = model_data["model"]
     scaler = model_data["scaler"]
 
-    # Build feature matrix matching the model's expected columns
-    feature_cols = [
-        c for c in features_df.columns
-        if c != ID_COLUMN
-    ]
-
     X = features_df[feature_cols].values.astype(float)
     X = np.nan_to_num(X, nan=0.0)
     X_scaled = scaler.transform(X)
@@ -166,8 +146,8 @@ def score_new_cycle(
 
     cb("ml_scoring", 80)
 
-    # --- Step 5: Triage ---
-    logger.info("Step 5: Assigning triage tiers")
+    # --- Step 4: Triage ---
+    logger.info("Step 4: Assigning triage tiers")
     cb("triage", 80)
 
     tiers = [_score_to_tier(s) for s in predicted_scores]

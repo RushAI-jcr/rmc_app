@@ -213,8 +213,12 @@ PARENT_EDUCATION_MAP = {
     "Doctor of Podiatric Medicine/Podiatry": 6,
 }
 
-# -- LLM rubric dimensions (v1 keys from rubric_scores.json) ---------------
-PS_DIMS_V1 = [
+# -- LLM rubric dimensions (v2: atomic scoring, 1-4 scale) -----------------
+# v2 uses research-grounded atomic prompts (1 dimension per API call)
+# to eliminate halo effects. Scale: 1-4 (no neutral midpoint).
+# Research: ACL 2024 (LLM-Rubric), EMNLP 2023 (G-Eval), arxiv:2509.21910 (AutoSCORE)
+
+PS_DIMS = [
     "writing_quality",
     "authenticity_and_self_awareness",
     "mission_alignment_service_orientation",
@@ -224,33 +228,19 @@ PS_DIMS_V1 = [
     "maturity_and_reflection",
 ]
 
-EXPERIENCE_QUALITY_DIMS_V1 = [
-    "direct_patient_care_depth",
-    "volunteering_depth",
-    "community_service_depth",
-    "shadowing_depth",
-    "clinical_experience_depth",
-    "leadership_depth_and_progression",
-    "research_depth_and_output",
-    "research_publication_quality",
-    "honors_significance",
-    "military_service_depth",
-    "meaningful_vs_checkbox",
+EXPERIENCE_QUALITY_DIMS = [
+    "direct_patient_care_depth_and_quality",
+    "research_depth_and_quality",
+    "community_service_depth_and_quality",
+    "leadership_depth_and_quality",
+    "teaching_mentoring_depth_and_quality",
+    "clinical_exposure_depth_and_quality",
+    "clinical_employment_depth_and_quality",
+    "advocacy_policy_depth_and_quality",
+    "global_crosscultural_depth_and_quality",
 ]
 
-EXPERIENCE_BINARY_DIMS_V1 = [
-    "has_direct_patient_care",
-    "has_volunteering",
-    "has_community_service",
-    "has_shadowing",
-    "has_clinical_experience",
-    "has_leadership",
-    "has_research",
-    "has_military_service",
-    "has_honors",
-]
-
-SECONDARY_DIMS_V1 = [
+SECONDARY_DIMS = [
     "personal_attributes_insight",
     "adversity_response_quality",
     "reflection_depth",
@@ -258,30 +248,7 @@ SECONDARY_DIMS_V1 = [
     "research_depth",
 ]
 
-ALL_RUBRIC_DIMS_V1 = (
-    PS_DIMS_V1 + EXPERIENCE_QUALITY_DIMS_V1 + EXPERIENCE_BINARY_DIMS_V1 + SECONDARY_DIMS_V1
-)
-
-# -- Collapsed rubric features (v2: depth scores replace binary flags) --------
-# v1 collapsed 30 → 10 due to multicollinearity. v2 adds research_publication_quality
-# and military_service_depth, and replaces binary flags with LLM-scored depth.
-RUBRIC_FEATURES_FINAL = [
-    "writing_quality",                       # PS quality (representative of PS cluster)
-    "mission_alignment_service_orientation",  # Mission alignment signal
-    "adversity_resilience",                  # Resilience signal
-    "direct_patient_care_depth",             # Experience depth (1-5 scale)
-    "volunteering_depth",
-    "community_service_depth",
-    "shadowing_depth",
-    "clinical_experience_depth",
-    "leadership_depth_and_progression",
-    "research_depth_and_output",
-    "research_publication_quality",          # Pubs, posters, presentations quality
-    "honors_significance",
-    "military_service_depth",
-    "personal_attributes_insight",           # Secondary essay quality
-    "rubric_scored_flag",                    # Binary: was applicant scored at all
-]
+ALL_RUBRIC_DIMS = PS_DIMS + EXPERIENCE_QUALITY_DIMS + SECONDARY_DIMS
 
 # -- Model training config --------------------------------------------------
 TRAIN_YEARS = [2022, 2023]
@@ -381,7 +348,19 @@ FEATURE_DISPLAY_NAMES = {
     "Contribution_to_Family": "Contributed to Family",
     "Employed_Undergrad": "Employed as Undergrad",
     "rubric_scored_flag": "Had Rubric Scores",
+    # v2 experience dimensions
+    "direct_patient_care_depth_and_quality": "Patient Care Depth",
+    "research_depth_and_quality": "Research Depth",
+    "community_service_depth_and_quality": "Community Service Depth",
+    "leadership_depth_and_quality": "Leadership Depth",
+    "teaching_mentoring_depth_and_quality": "Teaching & Mentoring",
+    "clinical_exposure_depth_and_quality": "Clinical Exposure",
+    "clinical_employment_depth_and_quality": "Clinical Employment",
+    "advocacy_policy_depth_and_quality": "Advocacy & Policy",
+    "global_crosscultural_depth_and_quality": "Global / Cross-Cultural",
 }
+
+
 
 
 def prettify(name: str) -> str:
