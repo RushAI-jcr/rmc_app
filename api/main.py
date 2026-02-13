@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from api.services.data_service import DataStore
 from api.services.review_service import load_decisions
 from api.routers import applicants, triage, review, fairness, stats
-from api.routers import auth
+from api.routers import auth, ingest
 from api.settings import settings
 
 logging.basicConfig(
@@ -57,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(ingest.router)
 app.include_router(applicants.router)
 app.include_router(triage.router)
 app.include_router(review.router)
