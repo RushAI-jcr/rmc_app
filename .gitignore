@@ -11,3 +11,24 @@ node_modules/
 .next/
 .vercel/
 *.log
+
+# Python virtual environment
+.venv/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Next.js auto-generated
+next-env.d.ts
+
+# Local plugin config
+compound-engineering.local.md
+
+# Staging / scratch files
+files/
+
+# Removed v1 pipeline artifacts (replaced by v2)
+data/cache/rubric_scores.json
+data/processed/rubric_features.csv
+data/processed/rubric_features_raw.csv
+pipeline/rubric_scorer.py
