@@ -64,15 +64,30 @@ def _normalize_id_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _read_xlsx(year: int, file_key: str) -> pd.DataFrame:
-    """Read an xlsx file for a given year, with column normalization."""
-    folder = YEAR_FOLDERS[year]
-    if file_key == "schools":
-        fname = FILE_MAP["schools_2024"] if year == 2024 else FILE_MAP["schools_2022_2023"]
-    else:
-        fname = FILE_MAP[file_key]
+def _read_xlsx(
+    year: int,
+    file_key: str,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
+    """Read an xlsx file for a given year, with column normalization.
 
-    path = DATA_DIR / folder / fname
+    Args:
+        data_dir: Override base data directory (default: DATA_DIR).
+        file_map: Override file lookup -- maps logical type to exact Path.
+    """
+    # If a file_map is provided, use it directly (bypasses folder/filename logic)
+    if file_map and file_key in file_map:
+        path = file_map[file_key]
+    else:
+        base = data_dir or DATA_DIR
+        folder = YEAR_FOLDERS.get(year, str(year))
+        if file_key == "schools":
+            fname = FILE_MAP["schools_2024"] if year == 2024 else FILE_MAP["schools_2022_2023"]
+        else:
+            fname = FILE_MAP[file_key]
+        path = base / folder / fname
+
     if not path.exists():
         logger.warning("File not found: %s", path)
         return pd.DataFrame()
@@ -88,12 +103,16 @@ def _read_xlsx(year: int, file_key: str) -> pd.DataFrame:
 # -- Individual table loaders ------------------------------------------------
 
 
-def load_applicants(years: list[int] | None = None) -> pd.DataFrame:
+def load_applicants(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load and concatenate Applicants table across years."""
     years = years or list(YEAR_FOLDERS.keys())
     frames = []
     for year in years:
-        df = _read_xlsx(year, "applicants")
+        df = _read_xlsx(year, "applicants", data_dir=data_dir, file_map=file_map)
         if df.empty:
             continue
         for col in df.columns:
@@ -110,55 +129,79 @@ def load_applicants(years: list[int] | None = None) -> pd.DataFrame:
     return combined
 
 
-def load_experiences(years: list[int] | None = None) -> pd.DataFrame:
+def load_experiences(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load Experiences table (one row per experience, many per applicant)."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "experiences") for y in years]
+    frames = [_read_xlsx(y, "experiences", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d experience records", len(combined))
     return combined
 
 
-def load_personal_statements(years: list[int] | None = None) -> pd.DataFrame:
+def load_personal_statements(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load Personal Statement table (one row per applicant)."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "personal_statement") for y in years]
+    frames = [_read_xlsx(y, "personal_statement", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d personal statements", len(combined))
     return combined
 
 
-def load_secondary_applications(years: list[int] | None = None) -> pd.DataFrame:
+def load_secondary_applications(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load Secondary Application table."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "secondary_application") for y in years]
+    frames = [_read_xlsx(y, "secondary_application", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d secondary applications", len(combined))
     return combined
 
 
-def load_gpa_trend(years: list[int] | None = None) -> pd.DataFrame:
+def load_gpa_trend(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load GPA Trend table."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "gpa_trend") for y in years]
+    frames = [_read_xlsx(y, "gpa_trend", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d GPA trend records", len(combined))
     return combined
 
 
-def load_languages(years: list[int] | None = None) -> pd.DataFrame:
+def load_languages(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load Language table (one row per language per applicant)."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "language") for y in years]
+    frames = [_read_xlsx(y, "language", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d language records", len(combined))
     return combined
 
 
-def load_parents(years: list[int] | None = None) -> pd.DataFrame:
+def load_parents(
+    years: list[int] | None = None,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
+) -> pd.DataFrame:
     """Load Parents table (1-2 rows per applicant)."""
     years = years or list(YEAR_FOLDERS.keys())
-    frames = [_read_xlsx(y, "parents") for y in years]
+    frames = [_read_xlsx(y, "parents", data_dir=data_dir, file_map=file_map) for y in years]
     combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
     logger.info("Loaded %d parent records", len(combined))
     return combined
@@ -281,20 +324,27 @@ def derive_experience_binary_flags(experiences: pd.DataFrame) -> pd.DataFrame:
 def build_unified_dataset(
     years: list[int] | None = None,
     exclude_zero_scores: bool = True,
+    data_dir: Path | None = None,
+    file_map: dict[str, Path] | None = None,
 ) -> pd.DataFrame:
     """Build the unified applicant dataset by joining all tables.
+
+    Args:
+        data_dir: Override base data directory (default: DATA_DIR).
+        file_map: Override file lookup -- maps logical type to exact Path.
 
     Returns a single DataFrame with one row per applicant.
     """
     years = years or list(YEAR_FOLDERS.keys())
+    kw = {"data_dir": data_dir, "file_map": file_map}
 
-    applicants = load_applicants(years)
-    experiences = load_experiences(years)
-    personal_statements = load_personal_statements(years)
-    secondary_apps = load_secondary_applications(years)
-    gpa_trend = load_gpa_trend(years)
-    languages = load_languages(years)
-    parents = load_parents(years)
+    applicants = load_applicants(years, **kw)
+    experiences = load_experiences(years, **kw)
+    personal_statements = load_personal_statements(years, **kw)
+    secondary_apps = load_secondary_applications(years, **kw)
+    gpa_trend = load_gpa_trend(years, **kw)
+    languages = load_languages(years, **kw)
+    parents = load_parents(years, **kw)
 
     lang_agg = aggregate_languages(languages)
     parent_agg = aggregate_parents(parents)
