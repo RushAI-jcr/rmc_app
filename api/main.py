@@ -16,6 +16,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from api.services.data_service import DataStore
 from api.services.review_service import load_decisions
 from api.routers import applicants, triage, review, fairness, stats
+from api.routers import auth
+from api.settings import settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,12 +50,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=settings.origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(applicants.router)
 app.include_router(triage.router)
 app.include_router(review.router)
