@@ -89,12 +89,16 @@ def list_applicants(
     config: str = Query("A_Structured"),
     tier: int | None = None,
     search: str | None = None,
+    cycle_year: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> dict:
     """Paginated list of applicants with predictions."""
     store = request.app.state.store
     predictions = build_prediction_table(config, store)
+
+    if cycle_year is not None:
+        predictions = [p for p in predictions if p.get("app_year") == cycle_year]
 
     if tier is not None:
         predictions = [p for p in predictions if p["tier"] == tier]
