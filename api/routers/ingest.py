@@ -26,6 +26,18 @@ from api.services.upload_service import (
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
 
+def verify_session_ownership(session: UploadSession, user: User) -> None:
+    """Verify user owns the session or is admin.
+
+    Raises HTTPException(403) if user doesn't have access.
+    """
+    if session.uploaded_by != user.id and user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this session"
+        )
+
+
 @router.post("/upload")
 def upload_files(
     cycle_year: int = Form(...),
@@ -102,6 +114,8 @@ def preview_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    verify_session_ownership(session, user)
+
     # Auto-validate if not yet done
     if session.status == "uploaded" and not session.validation_result:
         validate_session(db, session)
@@ -117,6 +131,10 @@ def get_validation(
 ) -> ValidationResult:
     """Get or run validation for a session."""
     session = db.query(UploadSession).filter(UploadSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    verify_session_ownership(session, user)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -144,6 +162,8 @@ def approve_session(
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    verify_session_ownership(session, user)
 
     if session.status not in ("validated", "uploaded"):
         raise HTTPException(
@@ -214,6 +234,8 @@ def retry_session(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    verify_session_ownership(session, user)
+
     if session.status != "failed":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -253,6 +275,8 @@ def override_file_types(
     session = db.query(UploadSession).filter(UploadSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    verify_session_ownership(session, user)
 
     manifest = session.file_manifest or {}
     for filename, new_type in overrides.items():

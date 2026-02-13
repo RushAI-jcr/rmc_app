@@ -14,7 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -100,10 +100,12 @@ class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
     __table_args__ = (
         Index("ix_pipeline_runs_session_status", "upload_session_id", "status"),
-        # Prevent duplicate active runs per session
-        UniqueConstraint(
+        # Prevent duplicate active runs per session (allows retry after completion/failure)
+        Index(
+            "uq_pipeline_runs_active",
             "upload_session_id",
-            name="uq_pipeline_runs_active_session",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'running')"),
         ),
         CheckConstraint("progress_pct BETWEEN 0 AND 100", name="progress_pct_range"),
     )

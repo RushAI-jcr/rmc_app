@@ -22,6 +22,7 @@ from pipeline.config import (
     CACHE_DIR,
     SCORE_BUCKET_THRESHOLDS,
     TIER_LABELS,
+    score_to_tier,
 )
 from pipeline.data_preparation import prepare_dataset
 from pipeline.feature_engineering import FeaturePipeline
@@ -35,14 +36,6 @@ def _noop_progress(_step: str, _pct: int) -> None:
     pass
 
 
-def _score_to_tier(score: float) -> int:
-    """Map a continuous score to a triage tier index (0-3)."""
-    for i, threshold in enumerate(SCORE_BUCKET_THRESHOLDS):
-        if score < threshold:
-            return i
-    return 3
-
-
 def score_new_cycle(
     data_dir: Path,
     cycle_year: int,
@@ -54,10 +47,10 @@ def score_new_cycle(
     """Run the score-only pipeline on a new cycle's data.
 
     Steps:
-      1. Ingest (10%): load xlsx files into a unified DataFrame
-      2. Features (40%): load fitted FeaturePipeline, transform data
-      3. ML Score (80%): load pre-trained model, predict scores
-      4. Triage (100%): assign tiers, save output
+      1. Ingest (0-10%): load xlsx files into a unified DataFrame
+      2. Features (10-40%): load fitted FeaturePipeline, transform data
+      3. ML Score (40-70%): load pre-trained model, predict scores
+      4. Triage (70-100%): assign tiers, save output
 
     Args:
         data_dir: Directory containing the uploaded xlsx files.
@@ -87,25 +80,27 @@ def score_new_cycle(
 
     # --- Step 2: Features ---
     logger.info("Step 2: Extracting features")
-    cb("features", 10)
 
     # Load fitted feature pipeline from training
     pipeline_path = MODELS_DIR / "feature_pipeline.joblib"
     if pipeline_path.exists():
         feature_pipe = FeaturePipeline.load(pipeline_path)
     else:
-        # Fallback: try Plan A pipeline
-        pipeline_a_path = MODELS_DIR / "feature_pipeline_A.joblib"
+        # Fallback: try Plan A pipeline (JSON format after retraining)
+        pipeline_a_path = MODELS_DIR / "feature_pipeline_A.json"
+        if not pipeline_a_path.exists():
+            # Also try legacy .joblib extension
+            pipeline_a_path = MODELS_DIR / "feature_pipeline_A.joblib"
+
         if pipeline_a_path.exists():
             feature_pipe = FeaturePipeline.load(pipeline_a_path)
         else:
-            # No saved pipeline — create one on the fly (no rubric)
-            logger.warning("No saved FeaturePipeline found, creating one on the fly")
-            feature_pipe = FeaturePipeline(
-                include_rubric=rubric_scores_path is not None,
-                rubric_path=rubric_scores_path or (CACHE_DIR / "rubric_scores.json"),
+            raise FileNotFoundError(
+                f"No saved FeaturePipeline found. Expected one of:\n"
+                f"  - {MODELS_DIR / 'feature_pipeline.json'}\n"
+                f"  - {MODELS_DIR / 'feature_pipeline_A.json'}\n"
+                f"Run the training pipeline first: python -m pipeline.run_pipeline"
             )
-            feature_pipe.fit(df)
 
     features_df = feature_pipe.transform(df)
     feature_cols = feature_pipe.feature_columns_
@@ -114,14 +109,20 @@ def score_new_cycle(
 
     # --- Step 3: ML Score ---
     logger.info("Step 3: Loading model and predicting scores")
-    cb("ml_scoring", 40)
 
     model_path = MODELS_DIR / model_pkl
     if not model_path.exists():
         raise FileNotFoundError(f"Model not found: {model_path}")
 
-    with open(model_path, "rb") as f:
-        model_results = pickle.load(f)
+    from pipeline.model_verification import load_verified_pickle
+    try:
+        model_results = load_verified_pickle(model_path)
+    except FileNotFoundError as e:
+        # Hash file missing — allow for backward compatibility during transition
+        # TODO: Remove this fallback after retraining models with save_verified_pickle()
+        logger.warning("Model hash file missing, loading without verification: %s", e)
+        with open(model_path, "rb") as f:
+            model_results = pickle.load(f)
 
     # Find the best regressor (prefer XGBoost, fallback to any regressor)
     regressor_key = None
@@ -144,13 +145,12 @@ def score_new_cycle(
     predicted_scores = model.predict(X_scaled)
     predicted_scores = np.clip(predicted_scores, 0, 25)
 
-    cb("ml_scoring", 80)
+    cb("ml_scoring", 70)
 
     # --- Step 4: Triage ---
     logger.info("Step 4: Assigning triage tiers")
-    cb("triage", 80)
 
-    tiers = [_score_to_tier(s) for s in predicted_scores]
+    tiers = [score_to_tier(s) for s in predicted_scores]
     tier_labels = [TIER_LABELS[t] for t in tiers]
 
     # Build output DataFrame

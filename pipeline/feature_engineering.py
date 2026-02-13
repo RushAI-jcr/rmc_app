@@ -11,7 +11,6 @@ import json
 import logging
 from pathlib import Path
 
-import joblib
 import numpy as np
 import pandas as pd
 
@@ -44,11 +43,6 @@ def _to_binary(series: pd.Series) -> pd.Series:
     return series.map(
         lambda x: 1 if str(x).strip().lower().startswith("y") else 0
     )
-
-
-_BINARY_ALIASES = {
-    "Disadvantaged_Ind": ["Disadvantanged_Ind", "Disadvantaged_Ind"],
-}
 
 
 # ---------------------------------------------------------------------------
@@ -148,12 +142,14 @@ class FeaturePipeline:
         return features_df[[ID_COLUMN] + self.feature_columns_]
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Convenience: fit + transform in one call."""
+        """Convenience: fit + transform in one call without redundant work."""
         self.fit(df)
-        return self.transform(df)
+        result = self._fitted_transform_result
+        self._fitted_transform_result = None  # Free memory
+        return result[[ID_COLUMN] + self.feature_columns_]
 
     def save(self, path: Path) -> None:
-        """Persist fitted state to disk."""
+        """Persist fitted state to disk as JSON (no pickle vulnerability)."""
         if not self.is_fitted_:
             raise RuntimeError("Cannot save unfitted pipeline")
 
@@ -164,13 +160,18 @@ class FeaturePipeline:
             "feature_columns_": self.feature_columns_,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(state, path)
+
+        # Save as JSON instead of joblib/pickle (state contains only dicts/lists/floats)
+        with open(path, "w") as f:
+            json.dump(state, f, indent=2)
         logger.info("Saved FeaturePipeline to %s (%d features)", path, len(self.feature_columns_))
 
     @classmethod
     def load(cls, path: Path) -> "FeaturePipeline":
         """Load a previously fitted pipeline from disk."""
-        state = joblib.load(path)
+        with open(path) as f:
+            state = json.load(f)
+
         pipe = cls(include_rubric=state["include_rubric"])
         pipe.numeric_medians_ = state["numeric_medians_"]
         pipe.rubric_medians_ = state["rubric_medians_"]
@@ -236,16 +237,11 @@ class FeaturePipeline:
         for col in skipped:
             features[col] = 0.0
 
-        # Binary features with alias handling
+        # Binary features
         for col in BINARY_FEATURES:
-            matched = False
-            candidates = _BINARY_ALIASES.get(col, []) + [col]
-            for candidate in candidates:
-                if candidate in df.columns:
-                    features[col] = _to_binary(df[candidate])
-                    matched = True
-                    break
-            if not matched:
+            if col in df.columns:
+                features[col] = _to_binary(df[col])
+            else:
                 features[col] = 0
 
         logger.info(
@@ -406,30 +402,9 @@ class FeaturePipeline:
 
         rubric_df = pd.DataFrame(rows)
 
-        # Save raw rubric CSV for reference
-        self._save_rubric_csv(ids)
-
         n_scored = int(rubric_df["rubric_scored_flag"].sum())
         logger.info(
             "Built rubric features: %d dims, %d/%d applicants scored",
             len(quality_dims), n_scored, len(rubric_df),
         )
         return rubric_df
-
-    def _save_rubric_csv(self, ids: pd.Series) -> None:
-        """Save raw rubric scores CSV for reference."""
-        if not self._rubric_data:
-            return
-
-        rows = []
-        for amcas_id in ids:
-            scores = self._rubric_data.get(str(int(amcas_id)), {})
-            row = {ID_COLUMN: amcas_id}
-            for dim in ALL_RUBRIC_DIMS:
-                row[dim] = scores.get(dim, 0)
-            rows.append(row)
-
-        raw_df = pd.DataFrame(rows)
-        raw_path = PROCESSED_DIR / "rubric_features_raw_v2.csv"
-        raw_df.to_csv(raw_path, index=False)
-        logger.info("Saved raw rubric scores to %s", raw_path)

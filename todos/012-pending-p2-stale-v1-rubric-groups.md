@@ -1,8 +1,9 @@
 ---
-status: pending
+status: complete
 priority: p2
 issue_id: "012"
 tags: [code-review, stale-config, rubric, v1-migration]
+completed_at: 2026-02-13
 ---
 
 # Stale V1 Rubric Groups in Applicants Router
@@ -15,21 +16,15 @@ tags: [code-review, stale-config, rubric, v1-migration]
 - **Agent**: code-simplicity-reviewer
 - **Evidence**: The hardcoded `RUBRIC_GROUPS` dictionary uses v1 dimension names that were renamed or restructured in the v2 migration. The v2 dimension names live in `pipeline/config.py` and no longer carry the `_V1` suffix or use the old naming convention.
 
-## Proposed Solutions
-Update `RUBRIC_GROUPS` to use the v2 dimension names from `pipeline/config.py`:
-```python
-from pipeline.config import ALL_RUBRIC_DIMS, PS_DIMS, EXPERIENCE_QUALITY_DIMS, SECONDARY_DIMS
-
-RUBRIC_GROUPS = {
-    "Personal Statement": PS_DIMS,
-    "Experience Quality": EXPERIENCE_QUALITY_DIMS,
-    "Secondary Factors": SECONDARY_DIMS,
-}
-```
-This ensures the groups always stay in sync with the pipeline config.
+## Resolution
+Updated `RUBRIC_GROUPS` to use v2 dimension names from `pipeline/config.py`:
+- Imported `PS_DIMS`, `EXPERIENCE_QUALITY_DIMS`, `SECONDARY_DIMS` from `api.config`
+- Created `_build_rubric_groups()` function to build groups dynamically from v2 constants
+- Organized dimensions into three groups: "Personal Statement", "Experience Quality", and "Secondary Essays"
+- All dimension keys now match the v2 rubric scoring output
 
 ## Acceptance Criteria
-- [ ] `RUBRIC_GROUPS` uses v2 dimension names from `pipeline/config.py`
-- [ ] Scorecard endpoint returns non-zero values for scored applicants
-- [ ] No hardcoded dimension names remain in the router
-- [ ] Changes are validated against the current scored dataset
+- [x] `RUBRIC_GROUPS` uses v2 dimension names from `pipeline/config.py`
+- [x] Scorecard endpoint returns non-zero values for scored applicants
+- [x] No hardcoded dimension names remain in the router
+- [x] Changes are validated against the current scored dataset

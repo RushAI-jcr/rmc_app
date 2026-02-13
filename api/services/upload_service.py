@@ -85,19 +85,35 @@ def save_uploaded_files(
             errors.append(f"{f.filename}: only .xlsx files are accepted")
             continue
 
-        # Save to disk
-        dest = session_dir / f.filename
+        # Sanitize filename to prevent path traversal
+        from pathlib import PurePosixPath
+        safe_name = PurePosixPath(f.filename).name
+
+        # Reject dotfiles and empty names
+        if not safe_name or safe_name.startswith('.'):
+            errors.append(f"{f.filename}: invalid filename")
+            continue
+
+        # Save to disk with sanitized name
+        dest = session_dir / safe_name
+
+        # Belt-and-suspenders: verify resolved path is within session_dir
+        if not dest.resolve().is_relative_to(session_dir.resolve()):
+            errors.append(f"{f.filename}: path traversal attempt detected")
+            continue
+
         dest.write_bytes(content)
 
         # Detect type
         detected_type = detect_file_type(dest)
 
-        manifest[f.filename] = {
+        # Use safe_name in manifest (sanitized filename)
+        manifest[safe_name] = {
             "size": size,
             "local_path": str(dest),
             "detected_type": detected_type,
         }
-        logger.info("Saved %s (%d bytes) -> %s", f.filename, size, detected_type)
+        logger.info("Saved %s (%d bytes) -> %s", safe_name, size, detected_type)
 
     return manifest, errors
 
@@ -138,8 +154,10 @@ def validate_session(
             continue
 
         try:
-            df = pd.read_excel(local_path, engine="openpyxl", nrows=5)
-            row_count = len(pd.read_excel(local_path, engine="openpyxl"))
+            # Read once, reuse (eliminates duplicate file read)
+            df_full = pd.read_excel(local_path, engine="openpyxl")
+            row_count = len(df_full)
+            df = df_full.head(5)
         except Exception as exc:
             errors.append(ValidationIssue(
                 severity="error",

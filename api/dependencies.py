@@ -10,8 +10,14 @@ from api.services.auth_service import decode_access_token
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    """Extract JWT from httpOnly cookie, validate, return user."""
-    token = request.cookies.get("access_token")
+    """Extract JWT from Bearer header or httpOnly cookie, validate, return user."""
+    # Try Bearer header first (agent-friendly), then cookie (browser-friendly)
+    token = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    if not token:
+        token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

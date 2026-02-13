@@ -21,7 +21,7 @@ Research basis:
 import json
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -44,7 +44,7 @@ MIN_SCORABLE_TEXT = 100
 LLMCallFn = Callable[[str, str], str]
 
 
-def _parse_score_json(raw: str, dimension: str) -> Dict[str, Any]:
+def _parse_score_json(raw: str, dimension: str) -> dict[str, Any]:
     """Parse LLM JSON response, handling common failure modes.
 
     Returns dict with at minimum: {"dimension": ..., "score": ..., "reasoning": ...}
@@ -84,7 +84,7 @@ def score_dimension(
     prompt_template: str,
     text: str,
     llm_call: LLMCallFn,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Score a single dimension for a single applicant.
 
     Args:
@@ -124,7 +124,7 @@ def score_dimension(
 def score_personal_statement(
     ps_text: str,
     llm_call: LLMCallFn,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Score all 7 PS dimensions atomically (7 sequential API calls).
 
     Returns:
@@ -142,7 +142,7 @@ def score_experience_domain(
     domain_key: str,
     experience_text: str,
     llm_call: LLMCallFn,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Score a single experience domain.
 
     Returns:
@@ -154,9 +154,9 @@ def score_experience_domain(
 
 
 def score_all_experiences(
-    experience_texts: Dict[str, str],
+    experience_texts: dict[str, str],
     llm_call: LLMCallFn,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Score all experience domains atomically.
 
     Args:
@@ -181,7 +181,7 @@ def score_all_experiences(
 def score_secondary_essays(
     secondary_text: str,
     llm_call: LLMCallFn,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Score all 5 secondary essay dimensions atomically (5 sequential API calls).
 
     Returns:
@@ -198,11 +198,11 @@ def score_secondary_essays(
 
 def score_applicant(
     applicant_id: Any,
-    ps_text: Optional[str],
-    secondary_text: Optional[str],
-    experience_texts: Dict[str, str],
+    ps_text: str | None,
+    secondary_text: str | None,
+    experience_texts: dict[str, str],
     llm_call: LLMCallFn,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Score a single applicant across all dimensions.
 
     Args:
@@ -289,9 +289,9 @@ def score_applicant(
 
 
 def score_batch(
-    applicants: List[Dict[str, Any]],
+    applicants: list[dict[str, Any]],
     llm_call: LLMCallFn,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Score a batch of applicants sequentially.
 
     Args:

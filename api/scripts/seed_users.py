@@ -37,6 +37,10 @@ def seed(db: Session) -> None:
 
 
 def main() -> None:
+    # Guard against running in production
+    if settings.environment not in ("development", "test"):
+        raise RuntimeError("Seed script must not run in production environments")
+
     engine = create_engine(settings.database_url)
     with Session(engine) as db:
         print("Seeding users...")

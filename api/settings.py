@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Database
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/rmc_triage"
+    # Database (no default — must be set via env var)
+    database_url: str
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     celery_broker_url: str = ""
     celery_result_backend: str = ""
 
-    # JWT
-    jwt_secret: str = "dev-secret-key-change-in-production"
+    # JWT (no default — must be set via env var)
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 480  # 8 hours
 

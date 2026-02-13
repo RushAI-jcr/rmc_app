@@ -5,6 +5,8 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
+from celery.exceptions import SoftTimeLimitExceeded
+
 from api.celery_app import celery
 from api.db.models import PipelineRun, UploadSession
 from api.db.session import SessionLocal
@@ -14,7 +16,12 @@ from api.services.error_translation import translate_error
 logger = logging.getLogger(__name__)
 
 
-@celery.task(bind=True, max_retries=0)
+@celery.task(
+    bind=True,
+    max_retries=0,
+    soft_time_limit=300,   # 5 minutes — raises SoftTimeLimitExceeded
+    time_limit=360,        # 6 minutes — hard kill
+)
 def run_pipeline_task(self, run_id: str) -> dict:
     """Execute the score-only pipeline for a given PipelineRun.
 
@@ -92,6 +99,27 @@ def run_pipeline_task(self, run_id: str) -> dict:
 
         logger.info("Pipeline run %s completed: %d applicants", run_id, result["applicant_count"])
         return result
+
+    except SoftTimeLimitExceeded:
+        logger.error("Pipeline run %s exceeded time limit", run_id)
+        # Update run status to failed with timeout message
+        try:
+            failed_run = db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
+            if failed_run:
+                failed_run.status = "failed"
+                failed_run.error_log = "Pipeline exceeded 5-minute time limit"
+                failed_run.completed_at = datetime.now(timezone.utc)
+
+                failed_session = db.query(UploadSession).filter(
+                    UploadSession.id == failed_run.upload_session_id
+                ).first()
+                if failed_session:
+                    failed_session.status = "failed"
+
+                db.commit()
+        except Exception:
+            logger.exception("Failed to update run status after timeout")
+        raise
 
     except Exception as exc:
         logger.exception("Pipeline run %s failed", run_id)

@@ -19,7 +19,7 @@ class ApplicantSummary(BaseModel):
 class RubricDimension(BaseModel):
     name: str
     score: float
-    max_score: float = 5.0
+    max_score: float = 4.0
 
 
 class RubricGroup(BaseModel):
@@ -31,13 +31,6 @@ class RubricScorecard(BaseModel):
     """Reviewer-facing rubric grouped by priority areas."""
     groups: list[RubricGroup]
     has_rubric: bool = False
-
-
-# Keep old format for backward compatibility if needed
-class RubricScores(BaseModel):
-    personal_statement: dict[str, float] = {}
-    experience_quality: dict[str, float] = {}
-    secondary_essays: dict[str, float] = {}
 
 
 class ShapDriver(BaseModel):

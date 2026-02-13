@@ -573,12 +573,13 @@ def build_personal_statements_dict(years: list[int]) -> dict[int, str]:
         logger.warning("Could not identify PS text column. Columns: %s", list(ps_df.columns))
         return {}
 
-    result: dict[int, str] = {}
-    for _, row in ps_df.iterrows():
-        amcas_id = int(row[ID_COLUMN])
-        text = row.get(ps_col)
-        if text is not None and pd.notna(text) and str(text).strip():
-            result[amcas_id] = str(text).strip()
+    # Vectorized approach: filter valid rows, then create dict
+    valid_mask = ps_df[ps_col].notna() & (ps_df[ps_col].astype(str).str.strip() != "")
+    filtered = ps_df.loc[valid_mask, [ID_COLUMN, ps_col]]
+    result = dict(zip(
+        filtered[ID_COLUMN].astype(int),
+        filtered[ps_col].astype(str).str.strip(),
+    ))
 
     logger.info("Loaded %d personal statements", len(result))
     return result

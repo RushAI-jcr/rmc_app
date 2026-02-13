@@ -31,6 +31,13 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load data and models at startup."""
+    # Validate security configuration
+    if settings.environment not in ("development", "test"):
+        if len(settings.jwt_secret) < 32:
+            raise RuntimeError("JWT_SECRET must be at least 32 characters in production")
+        if "localhost" in settings.database_url or "postgres:postgres" in settings.database_url:
+            raise RuntimeError("DATABASE_URL must not use default credentials in production")
+
     logger.info("Loading data and models...")
     store = DataStore()
     store.load_all()
@@ -49,12 +56,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH"],  # Restrict to only methods actually used
+    allow_headers=["Content-Type", "Authorization"],  # Restrict headers
 )
 
 app.include_router(auth.router)
