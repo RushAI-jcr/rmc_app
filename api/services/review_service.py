@@ -15,7 +15,11 @@ DECISIONS_FILE = PROCESSED_DIR / "review_decisions.json"
 FLAGS_FILE = PROCESSED_DIR / "flags_current_cycle.json"
 
 
-def get_review_queue(config_name: str, store: DataStore) -> list[dict]:
+def get_review_queue(
+    config_name: str,
+    store: DataStore,
+    cycle_year: int | None = None,
+) -> list[dict]:
     """Get review queue filtered to Tier 2 + Tier 3 only.
 
     Human reviewers should never see Tier 0 or Tier 1 applicants.
@@ -27,6 +31,9 @@ def get_review_queue(config_name: str, store: DataStore) -> list[dict]:
 
     queue = []
     for p in predictions:
+        # Filter by cycle year if specified
+        if cycle_year is not None and p.get("app_year") != cycle_year:
+            continue
         # Only Tier 2 (Strong Candidate) and Tier 3 (Priority Interview)
         if p["tier"] < 2:
             continue

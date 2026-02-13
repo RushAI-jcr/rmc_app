@@ -1,9 +1,9 @@
 """CLI entry point: python -m pipeline.run_pipeline
 
 Runs the full ML pipeline end-to-end:
-  1. Data ingestion (xlsx -> unified DataFrames)
-  2. Data cleaning
-  3. Feature engineering (structured + engineered + rubric)
+  1. Data preparation (xlsx -> unified DataFrame)
+  2. Temporal split (BEFORE feature engineering to prevent leakage)
+  3. Feature engineering (fit on train, transform both)
   4. Model training (Plan A: structured, Plan B: structured + rubric)
   5. Model evaluation (bakeoff comparison)
   6. Fairness audit
@@ -15,27 +15,20 @@ import argparse
 import logging
 import time
 
+import numpy as np
 import pandas as pd
 
 from pipeline.config import (
     ID_COLUMN,
-    TARGET_SCORE,
-    STRUCTURED_FEATURES,
-    ENGINEERED_FEATURES,
-    EXPERIENCE_BINARY_FLAGS,
+    MODELS_DIR,
     PROCESSED_DIR,
+    TARGET_SCORE,
+    TRAIN_YEARS,
+    TEST_YEAR,
 )
-from pipeline.data_ingestion import build_unified_dataset, save_master_csvs
-from pipeline.data_cleaning import clean_dataset
-from pipeline.feature_engineering import (
-    extract_structured_features,
-    engineer_composite_features,
-    extract_binary_flags,
-    load_rubric_features,
-    combine_feature_sets,
-    get_feature_columns,
-)
-from pipeline.model_training import temporal_split, train_and_evaluate
+from pipeline.data_preparation import prepare_dataset, save_master_csvs
+from pipeline.feature_engineering import FeaturePipeline
+from pipeline.model_training import train_and_evaluate
 from pipeline.model_evaluation import (
     save_model_results,
     generate_bakeoff_comparison,
@@ -60,82 +53,137 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run(skip_ingestion: bool = False, skip_rubric: bool = False, two_stage: bool = False, bakeoff: bool = False) -> None:
+def _load_from_processed_csvs() -> pd.DataFrame:
+    """Load existing master CSVs instead of re-ingesting."""
+    dfs = []
+    for year in [2022, 2023, 2024]:
+        p = PROCESSED_DIR / f"master_{year}.csv"
+        if p.exists():
+            dfs.append(pd.read_csv(p))
+    df = pd.concat(dfs, ignore_index=True)
+    logger.info("Loaded %d rows from existing CSVs", len(df))
+    return df
+
+
+def _build_split(
+    feature_df: pd.DataFrame,
+    targets_df: pd.DataFrame,
+    feature_cols: list[str],
+) -> dict:
+    """Build the split dict consumed by model_training.train_and_evaluate().
+
+    Preserves the same interface as the old temporal_split() so downstream
+    model training, two-stage, and fairness code work unchanged.
+    """
+    merged = feature_df.merge(targets_df, on=ID_COLUMN, how="inner")
+    valid = merged["bucket_label"].notna()
+    merged = merged[valid].copy()
+
+    train_mask = merged["app_year"].isin(TRAIN_YEARS)
+    test_mask = merged["app_year"] == TEST_YEAR
+
+    X_train = merged.loc[train_mask, feature_cols].values.astype(float)
+    X_test = merged.loc[test_mask, feature_cols].values.astype(float)
+
+    y_train_score = merged.loc[train_mask, TARGET_SCORE].values.astype(float)
+    y_test_score = merged.loc[test_mask, TARGET_SCORE].values.astype(float)
+
+    y_train_bucket = merged.loc[train_mask, "bucket_label"].values.astype(int)
+    y_test_bucket = merged.loc[test_mask, "bucket_label"].values.astype(int)
+
+    X_train = np.nan_to_num(X_train, nan=0.0)
+    X_test = np.nan_to_num(X_test, nan=0.0)
+
+    test_ids = merged.loc[test_mask, ID_COLUMN].values
+
+    logger.info(
+        "Split: train=%d (years %s), test=%d (year %d)",
+        len(X_train), TRAIN_YEARS, len(X_test), TEST_YEAR,
+    )
+
+    return {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train_score": y_train_score,
+        "y_test_score": y_test_score,
+        "y_train_bucket": y_train_bucket,
+        "y_test_bucket": y_test_bucket,
+        "feature_names": feature_cols,
+        "test_ids": test_ids,
+    }
+
+
+def run(
+    skip_ingestion: bool = False,
+    skip_rubric: bool = False,
+    two_stage: bool = False,
+    bakeoff: bool = False,
+) -> None:
+    """Full pipeline: ingest -> split -> features -> train -> evaluate -> audit."""
     t0 = time.time()
 
-    # Step 1: Data ingestion
+    # Step 1: Data preparation
     if skip_ingestion:
         logger.info("Skipping ingestion, loading from processed CSVs...")
-        dfs = []
-        for year in [2022, 2023, 2024]:
-            p = PROCESSED_DIR / f"master_{year}.csv"
-            if p.exists():
-                dfs.append(pd.read_csv(p))
-        df = pd.concat(dfs, ignore_index=True)
-        logger.info("Loaded %d rows from existing CSVs", len(df))
+        df = _load_from_processed_csvs()
     else:
-        logger.info("=== Step 1: Data Ingestion ===")
-        df = build_unified_dataset()
-        save_master_csvs()
-        logger.info("Ingestion complete: %d applicants, %d columns", len(df), len(df.columns))
+        logger.info("=== Step 1: Data Preparation ===")
+        df = prepare_dataset()
+        save_master_csvs(df)
+        logger.info("Preparation complete: %d applicants, %d columns", len(df), len(df.columns))
 
-    # Step 2: Data cleaning
-    logger.info("=== Step 2: Data Cleaning ===")
-    df = clean_dataset(df)
+    # Step 2: Temporal split BEFORE feature engineering (prevents data leakage)
+    logger.info("=== Step 2: Temporal Split ===")
+    train_df = df[df["app_year"].isin(TRAIN_YEARS)].copy()
+    test_df = df[df["app_year"] == TEST_YEAR].copy()
+    logger.info("Train: %d applicants (%s), Test: %d applicants (%d)",
+                len(train_df), TRAIN_YEARS, len(test_df), TEST_YEAR)
 
-    # Step 3: Feature engineering
-    logger.info("=== Step 3: Feature Engineering ===")
-    structured = extract_structured_features(df)
-    engineered = engineer_composite_features(df)
-    binary_flags = extract_binary_flags(df)
-
-    rubric_df = None
-    if not skip_rubric:
-        rubric_df = load_rubric_features()
-        if rubric_df.empty:
-            logger.warning("No rubric features found, proceeding without them")
-            rubric_df = None
-
-    # Target columns to merge back
+    # Preserve targets + metadata for split construction
     target_cols = [ID_COLUMN, TARGET_SCORE, "bucket_label", "app_year"]
     targets_df = df[[c for c in target_cols if c in df.columns]].copy()
 
-    # Plan A: Structured + Engineered (no rubric)
-    plan_a_features = combine_feature_sets(structured, engineered, binary_flags)
-    plan_a_features = plan_a_features.merge(targets_df, on=ID_COLUMN, how="left")
+    # Step 3: Feature engineering (fit on train only)
+    logger.info("=== Step 3: Feature Engineering ===")
 
-    plan_a_feature_cols = [
-        c for c in plan_a_features.columns
-        if c not in {ID_COLUMN, TARGET_SCORE, "bucket_label", "app_year",
-                     "Service_Rating_Categorical", "Service_Rating_Numerical"}
-    ]
+    # Plan A: Structured + Engineered (no rubric)
+    pipe_a = FeaturePipeline(include_rubric=False)
+    X_train_a = pipe_a.fit_transform(train_df)
+    X_test_a = pipe_a.transform(test_df)
+    feature_cols_a = pipe_a.feature_columns_
+    pipe_a.save(MODELS_DIR / "feature_pipeline_A.joblib")
+
+    # Combine train+test feature frames for split construction
+    X_all_a = pd.concat([X_train_a, X_test_a], ignore_index=True)
+    split_a = _build_split(X_all_a, targets_df, feature_cols_a)
 
     # Plan B: Structured + Engineered + Rubric
-    plan_b_features = None
-    plan_b_feature_cols = None
-    if rubric_df is not None:
-        plan_b_features = combine_feature_sets(structured, engineered, binary_flags, rubric_df)
-        plan_b_features = plan_b_features.merge(targets_df, on=ID_COLUMN, how="inner")
-        plan_b_feature_cols = [
-            c for c in plan_b_features.columns
-            if c not in {ID_COLUMN, TARGET_SCORE, "bucket_label", "app_year",
-                         "Service_Rating_Categorical", "Service_Rating_Numerical"}
-        ]
+    split_b = None
+    if not skip_rubric:
+        pipe_b = FeaturePipeline(include_rubric=True)
+        pipe_b.fit(train_df)
+        if pipe_b._rubric_data:
+            X_train_b = pipe_b.transform(train_df)
+            X_test_b = pipe_b.transform(test_df)
+            feature_cols_b = pipe_b.feature_columns_
+            pipe_b.save(MODELS_DIR / "feature_pipeline.joblib")
+
+            X_all_b = pd.concat([X_train_b, X_test_b], ignore_index=True)
+            split_b = _build_split(X_all_b, targets_df, feature_cols_b)
+        else:
+            logger.warning("No rubric features found, proceeding without them")
 
     # Step 4: Model training
     logger.info("=== Step 4: Model Training ===")
     all_results = {}
 
-    logger.info("--- Plan A: Structured Only (%d features) ---", len(plan_a_feature_cols))
-    split_a = temporal_split(plan_a_features, plan_a_feature_cols)
+    logger.info("--- Plan A: Structured Only (%d features) ---", len(feature_cols_a))
     results_a = train_and_evaluate(split_a)
     save_model_results(results_a, "A_Structured")
     all_results["A_Structured"] = results_a
 
-    split_b = None
-    if plan_b_features is not None and plan_b_feature_cols is not None:
-        logger.info("--- Plan B: Structured + Rubric (%d features) ---", len(plan_b_feature_cols))
-        split_b = temporal_split(plan_b_features, plan_b_feature_cols)
+    if split_b is not None:
+        logger.info("--- Plan B: Structured + Rubric (%d features) ---", len(split_b["feature_names"]))
         results_b = train_and_evaluate(split_b)
         save_model_results(results_b, "D_Struct+Rubric")
         all_results["D_Struct+Rubric"] = results_b
@@ -151,7 +199,6 @@ def run(skip_ingestion: bool = False, skip_rubric: bool = False, two_stage: bool
 
     # Step 6: Fairness audit
     logger.info("=== Step 6: Fairness Audit ===")
-    # Run fairness on Plan A XGBoost classifier
     if "clf_XGBoost" in results_a:
         scaler = results_a["clf_XGBoost"]["scaler"]
         clf = results_a["clf_XGBoost"]["model"]
@@ -159,26 +206,18 @@ def run(skip_ingestion: bool = False, skip_rubric: bool = False, two_stage: bool
         y_pred = clf.predict(X_test_scaled)
         y_true = split_a["y_test_bucket"]
 
-        # Get the test portion of plan_a_features for protected attributes
-        # Use the same filtering as temporal_split
-        valid = plan_a_features["bucket_label"].notna()
-        df_valid = plan_a_features[valid].copy()
-        test_mask = df_valid["app_year"] == 2024
-        test_ids = df_valid.loc[test_mask, ID_COLUMN].values
+        # Get protected attributes from original df for test IDs
+        test_ids = split_a["test_ids"]
+        test_df_audit = df[df[ID_COLUMN].isin(test_ids)].reset_index(drop=True)
+        test_df_audit = test_df_audit.set_index(ID_COLUMN).loc[test_ids].reset_index()
 
-        # Get protected attributes from original df for those IDs
-        test_df = df[df[ID_COLUMN].isin(test_ids)].reset_index(drop=True)
-        # Reorder to match test_ids order
-        test_df = test_df.set_index(ID_COLUMN).loc[test_ids].reset_index()
-
-        fairness_df = full_fairness_audit(y_true, y_pred, test_df)
+        fairness_df = full_fairness_audit(y_true, y_pred, test_df_audit)
         if not fairness_df.empty:
             logger.info("\n%s", fairness_df.to_string(index=False))
 
     # Step 7: Two-stage screening model (optional)
     if two_stage:
         logger.info("=== Step 7: Two-Stage Screening Model ===")
-        # Use Plan A split (structured features) for the two-stage model
         two_stage_results = train_two_stage(split_a)
         save_two_stage_artifacts(two_stage_results)
         save_two_stage_report(two_stage_results)
@@ -195,10 +234,7 @@ def run(skip_ingestion: bool = False, skip_rubric: bool = False, two_stage: bool
         gate_threshold = two_stage_results["gate"]["threshold"]
         p_low_test = calibrated_gate.predict_proba(split_a["X_test"])[:, 1]
 
-        valid = plan_a_features["bucket_label"].notna()
-        df_valid = plan_a_features[valid].copy()
-        test_mask_ts = df_valid["app_year"] == 2024
-        test_ids_ts = df_valid.loc[test_mask_ts, ID_COLUMN].values
+        test_ids_ts = split_a["test_ids"]
         test_df_ts = df[df[ID_COLUMN].isin(test_ids_ts)].reset_index(drop=True)
         test_df_ts = test_df_ts.set_index(ID_COLUMN).loc[test_ids_ts].reset_index()
 
@@ -213,29 +249,28 @@ def run(skip_ingestion: bool = False, skip_rubric: bool = False, two_stage: bool
         logger.info("=== Step 9: Architecture Bakeoff ===")
         bakeoff_results = {}
 
-        # 1. Regression-only Plan A (structured)
+        # Regression-only Plan A
         bakeoff_results["Regression Only (Structured)"] = train_regression_only(
             split_a, "Regression Only (Structured)",
         )
 
-        # 2. Regression-only Plan B (structured + rubric)
+        # Regression-only Plan B
         if split_b is not None:
             bakeoff_results["Regression Only (Struct+Rubric)"] = train_regression_only(
                 split_b, "Regression Only (Struct+Rubric)",
             )
 
-        # 3. Two-stage Plan A (structured)
+        # Two-stage Plan A
         logger.info("--- Two-Stage Plan A ---")
         ts_a = train_two_stage(split_a)
         bakeoff_results["Two-Stage (Structured)"] = ts_a
 
-        # 4. Two-stage Plan B (structured + rubric)
+        # Two-stage Plan B
         if split_b is not None:
             logger.info("--- Two-Stage Plan B ---")
             ts_b = train_two_stage(split_b)
             bakeoff_results["Two-Stage (Struct+Rubric)"] = ts_b
 
-        # Build comparison tables
         table_df = build_bakeoff_table(bakeoff_results)
         shap_df = build_shap_comparison(bakeoff_results)
         save_bakeoff_report(table_df, shap_df)

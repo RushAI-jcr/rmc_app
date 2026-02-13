@@ -20,52 +20,50 @@ from api.services.prediction_service import build_prediction_table, compute_shap
 
 router = APIRouter(prefix="/api/applicants", tags=["applicants"])
 
-# Reviewer-priority rubric grouping
-RUBRIC_GROUPS = [
-    {
-        "label": "Volunteering & Community",
-        "dims": [
-            ("volunteering_depth", "Volunteering Depth"),
-            ("community_service_depth", "Community Service Depth"),
-        ],
-    },
-    {
-        "label": "Clinical Experience",
-        "dims": [
-            ("direct_patient_care_depth", "Direct Patient Care"),
-            ("clinical_experience_depth", "Clinical Experience"),
-            ("shadowing_depth", "Shadowing"),
-        ],
-    },
-    {
-        "label": "Grit / Resilience",
-        "dims": [
-            ("adversity_resilience", "Adversity & Resilience"),
-        ],
-    },
-    {
-        "label": "Mission Alignment",
-        "dims": [
-            ("mission_alignment_service_orientation", "Mission Alignment"),
-            ("writing_quality", "Writing Quality"),
-        ],
-    },
-    {
-        "label": "Research & Leadership",
-        "dims": [
-            ("research_depth_and_output", "Research Depth & Output"),
-            ("leadership_depth_and_progression", "Leadership & Progression"),
-        ],
-    },
-    {
-        "label": "Secondary Essays",
-        "dims": [
-            ("personal_attributes_insight", "Personal Attributes"),
-            ("adversity_response_quality", "Adversity Response"),
-            ("healthcare_experience_quality", "Healthcare Commitment"),
-        ],
-    },
-]
+# Reviewer-priority rubric grouping (built from v2 dimension constants)
+def _build_rubric_groups() -> list[dict]:
+    """Build RUBRIC_GROUPS from v2 dimension constants."""
+    return [
+        {
+            "label": "Personal Statement",
+            "dims": [
+                ("writing_quality", "Writing Quality"),
+                ("authenticity_and_self_awareness", "Authenticity & Self-Awareness"),
+                ("mission_alignment_service_orientation", "Mission Alignment"),
+                ("adversity_resilience", "Adversity & Resilience"),
+                ("motivation_depth", "Motivation Depth"),
+                ("intellectual_curiosity", "Intellectual Curiosity"),
+                ("maturity_and_reflection", "Maturity & Reflection"),
+            ],
+        },
+        {
+            "label": "Experience Quality",
+            "dims": [
+                ("direct_patient_care_depth_and_quality", "Direct Patient Care"),
+                ("research_depth_and_quality", "Research"),
+                ("community_service_depth_and_quality", "Community Service"),
+                ("leadership_depth_and_quality", "Leadership"),
+                ("teaching_mentoring_depth_and_quality", "Teaching & Mentoring"),
+                ("clinical_exposure_depth_and_quality", "Clinical Exposure"),
+                ("clinical_employment_depth_and_quality", "Clinical Employment"),
+                ("advocacy_policy_depth_and_quality", "Advocacy & Policy"),
+                ("global_crosscultural_depth_and_quality", "Global & Cross-Cultural"),
+            ],
+        },
+        {
+            "label": "Secondary Essays",
+            "dims": [
+                ("personal_attributes_insight", "Personal Attributes"),
+                ("adversity_response_quality", "Adversity Response"),
+                ("reflection_depth", "Reflection Depth"),
+                ("healthcare_experience_quality", "Healthcare Experience"),
+                ("research_depth", "Research Depth"),
+            ],
+        },
+    ]
+
+
+RUBRIC_GROUPS = _build_rubric_groups()
 
 
 def _build_rubric_scorecard(rubric_data: dict) -> RubricScorecard:
@@ -89,12 +87,16 @@ def list_applicants(
     config: str = Query("A_Structured"),
     tier: int | None = None,
     search: str | None = None,
+    cycle_year: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> dict:
     """Paginated list of applicants with predictions."""
     store = request.app.state.store
     predictions = build_prediction_table(config, store)
+
+    if cycle_year is not None:
+        predictions = [p for p in predictions if p.get("app_year") == cycle_year]
 
     if tier is not None:
         predictions = [p for p in predictions if p["tier"] == tier]

@@ -9,10 +9,14 @@ router = APIRouter(prefix="/api/review", tags=["review"])
 
 
 @router.get("/queue")
-def review_queue(request: Request, config: str = "A_Structured") -> list[ReviewQueueItem]:
+def review_queue(
+    request: Request,
+    config: str = "A_Structured",
+    cycle_year: int | None = None,
+) -> list[ReviewQueueItem]:
     """Get the prioritized review queue (Tier 2 + Tier 3 only)."""
     store = request.app.state.store
-    queue = get_review_queue(config, store)
+    queue = get_review_queue(config, store, cycle_year=cycle_year)
     return [ReviewQueueItem(**item) for item in queue]
 
 

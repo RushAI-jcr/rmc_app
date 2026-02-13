@@ -161,12 +161,20 @@ class DataStore:
         logger.info("Engineered features computed for master data")
 
     def _load_models(self) -> None:
+        from pipeline.model_verification import load_verified_pickle
+
         for config_name, filename in WORKING_PKLS.items():
             path = MODELS_DIR / filename
             if path.exists():
-                with open(path, "rb") as f:
-                    self.model_results[config_name] = pickle.load(f)
-                logger.info("Loaded model: %s", config_name)
+                try:
+                    self.model_results[config_name] = load_verified_pickle(path)
+                    logger.info("Loaded model: %s (verified)", config_name)
+                except FileNotFoundError:
+                    # Hash file missing — fallback for backward compatibility
+                    # TODO: Remove after retraining models with save_verified_pickle()
+                    logger.warning("Model hash missing, loading without verification: %s", config_name)
+                    with open(path, "rb") as f:
+                        self.model_results[config_name] = pickle.load(f)
             else:
                 logger.warning("Model not found: %s", path)
 

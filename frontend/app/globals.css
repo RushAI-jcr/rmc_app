@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Calibre";
+  src: local("Calibre");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Calibre";
+  src: local("Calibre Medium");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Calibre";
+  src: local("Calibre Semibold");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Calibre";
+  src: local("Calibre Bold");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --background: #FFFBEC;
+  --foreground: #171717;
+
+  /* Rush Brand Colors */
+  --legacy-green: #006332;
+  --vitality-green: #5FEEA2;
+  --growth-green: #00A66C;
+  --wash-green: #9AEFC2;
+  --sage: #DFF9EB;
+  --cerulean-blue: #54ADD3;
+  --purple: #694FA0;
+  --wash-gray: #A59F9F;
+  --raw-umber: #5F5858;
+  --gray: #EAEAEA;
+  --ivory: #FFFBEC;
+  --rose: #FDE0DF;
+  --deep-blue: #00668E;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-legacy-green: var(--legacy-green);
+  --color-vitality-green: var(--vitality-green);
+  --color-growth-green: var(--growth-green);
+  --color-wash-green: var(--wash-green);
+  --color-sage: var(--sage);
+  --color-cerulean-blue: var(--cerulean-blue);
+  --color-purple: var(--purple);
+  --color-wash-gray: var(--wash-gray);
+  --color-raw-umber: var(--raw-umber);
+  --color-gray: var(--gray);
+  --color-ivory: var(--ivory);
+  --color-rose: var(--rose);
+  --color-deep-blue: var(--deep-blue);
+
+  --font-sans: "Calibre", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Calibre", system-ui, -apple-system, sans-serif;
+}
