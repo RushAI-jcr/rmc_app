@@ -1,0 +1,21 @@
+architecture,rank,feature,mean_abs_shap
+Regression Only (Structured),1,Exp_Hour_Research,0.6830209445207784
+Regression Only (Structured),2,HealthCare_Total_Hours,0.6273639501153271
+Regression Only (Structured),3,Exp_Hour_Total,0.6255798469726033
+Regression Only (Structured),4,Exp_Hour_Volunteer_Non_Med,0.6162809178955199
+Regression Only (Structured),5,Exp_Hour_Volunteer_Med,0.5562313338479665
+Regression Only (Struct+Rubric),1,personal_attributes_insight,1.115425179145806
+Regression Only (Struct+Rubric),2,adversity_resilience,1.0133222174377416
+Regression Only (Struct+Rubric),3,direct_patient_care_depth,0.6194750658763775
+Regression Only (Struct+Rubric),4,writing_quality,0.5783674709670269
+Regression Only (Struct+Rubric),5,leadership_depth_and_progression,0.47269759548146933
+Two-Stage (Structured),1,Exp_Hour_Research,0.13407554070620417
+Two-Stage (Structured),2,Comm_Service_Total_Hours,0.13374861849631148
+Two-Stage (Structured),3,HealthCare_Total_Hours,0.12826198079017628
+Two-Stage (Structured),4,Exp_Hour_Volunteer_Med,0.11277964313305644
+Two-Stage (Structured),5,Exp_Hour_Shadowing,0.10366619561695202
+Two-Stage (Struct+Rubric),1,HealthCare_Total_Hours,0.15067371690762155
+Two-Stage (Struct+Rubric),2,research_depth_and_output,0.12686707090203309
+Two-Stage (Struct+Rubric),3,Exp_Hour_Shadowing,0.12416009185592448
+Two-Stage (Struct+Rubric),4,Comm_Service_Total_Hours,0.11670286431447928
+Two-Stage (Struct+Rubric),5,Exp_Hour_Research,0.10344694585529406

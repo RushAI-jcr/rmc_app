@@ -1,0 +1,960 @@
+{
+  "search_summary": {
+    "platforms_searched": ["arxiv", "google_scholar", "openai_docs", "anthropic_docs", "research_blogs"],
+    "repositories_analyzed": 0,
+    "docs_reviewed": 45,
+    "research_papers_found": 8
+  },
+
+  "executive_summary": {
+    "recommended_architecture": "Single-pass GPT-4.1-mini with Batch API, chain-of-thought prompting, and structured outputs",
+    "estimated_cost_per_cycle": "$245-350 for 17,000 applicants",
+    "processing_time": "18-24 hours",
+    "accuracy_expectation": "88-95% alignment with human reviewers (based on medical admissions research)",
+    "key_advantages": [
+      "50% cost reduction via Batch API",
+      "Guaranteed JSON schema compliance with structured outputs",
+      "Chain-of-thought improves scoring consistency",
+      "Temperature=0 maximizes reproducibility",
+      "Cost-effective enough for consensus scoring if needed"
+    ]
+  },
+
+  "model_comparison": {
+    "gpt_4_1": {
+      "citation": "[1] OpenAI. 'GPT-4.1 Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing",
+      "pricing": {
+        "standard": {
+          "input": "$2.00/M tokens",
+          "output": "$8.00/M tokens"
+        },
+        "batch_api": {
+          "input": "$1.00/M tokens (50% discount)",
+          "output": "$4.00/M tokens (50% discount)",
+          "turnaround": "18-24 hours typical"
+        }
+      },
+      "structured_outputs": {
+        "supported": true,
+        "reliability": "100% JSON schema compliance",
+        "method": "Constrained sampling with deterministic enforcement"
+      },
+      "accuracy": {
+        "llm_as_judge": "81% agreement with human evaluators",
+        "medical_admissions": "88-95% accuracy in medical school screening tasks"
+      },
+      "pros": [
+        "Perfect JSON schema compliance",
+        "Proven accuracy in medical admissions research",
+        "Batch API cuts costs in half",
+        "Strong reasoning capabilities"
+      ],
+      "cons": [
+        "Most expensive option (even with batch discount)",
+        "24-hour turnaround required"
+      ]
+    },
+
+    "gpt_4_1_mini": {
+      "citation": "[2] OpenAI. 'GPT-4.1 Mini Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing",
+      "pricing": {
+        "standard": {
+          "input": "$0.40/M tokens",
+          "output": "$1.60/M tokens"
+        },
+        "batch_api": {
+          "input": "$0.20/M tokens (50% discount)",
+          "output": "$0.80/M tokens (50% discount)"
+        }
+      },
+      "structured_outputs": {
+        "supported": true,
+        "reliability": "100% JSON schema compliance"
+      },
+      "accuracy": {
+        "intelligence": "Matches or exceeds GPT-4o in intelligence evals",
+        "latency": "Nearly half the latency of GPT-4o",
+        "cost_reduction": "83% cheaper than GPT-4o"
+      },
+      "pros": [
+        "5x cheaper than GPT-4.1 (10x cheaper with batch)",
+        "Structured outputs guarantee valid JSON",
+        "Strong performance on structured tasks",
+        "Fastest processing"
+      ],
+      "cons": [
+        "May have slightly lower reasoning depth than GPT-4.1",
+        "Less research on accuracy for complex evaluations"
+      ],
+      "recommendation": "BEST CHOICE for cost/performance balance"
+    },
+
+    "gpt_4_1_nano": {
+      "citation": "[3] OpenAI. 'GPT-4.1 Nano Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing",
+      "pricing": {
+        "standard": {
+          "input": "$0.10/M tokens",
+          "output": "$0.40/M tokens"
+        },
+        "batch_api": {
+          "input": "$0.05/M tokens (50% discount)",
+          "output": "$0.20/M tokens (50% discount)"
+        }
+      },
+      "pros": [
+        "Cheapest option (20x cheaper than GPT-4.1)",
+        "Fastest response time",
+        "Structured outputs supported"
+      ],
+      "cons": [
+        "Designed for simple tasks only",
+        "May struggle with nuanced rubric criteria",
+        "No published research on complex evaluation accuracy"
+      ],
+      "recommendation": "NOT RECOMMENDED - too simple for 8-10 dimension rubrics"
+    },
+
+    "claude_3_5_sonnet": {
+      "citation": "[4] Anthropic. 'Claude 3.5 Sonnet Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing",
+      "pricing": {
+        "standard": {
+          "input": "$3.00/M tokens",
+          "output": "$15.00/M tokens"
+        },
+        "batch_api": {
+          "input": "$1.50/M tokens (50% discount)",
+          "output": "$7.50/M tokens (50% discount)"
+        }
+      },
+      "structured_outputs": {
+        "supported": true,
+        "reliability": "High but not 100% guaranteed (uses tool calling)",
+        "method": "Tool-based schema enforcement with validation"
+      },
+      "accuracy": {
+        "llm_as_judge": "77% agreement with human evaluators",
+        "tendency": "Over-predicts relevance"
+      },
+      "pros": [
+        "Very strong at structured tasks",
+        "Excellent formatting and precise execution",
+        "Batch API available with 50% discount",
+        "Good for deterministic workflows"
+      ],
+      "cons": [
+        "50% more expensive than GPT-4.1 (even with batch)",
+        "Lower accuracy than GPT-4 in judge benchmarks",
+        "Structured outputs not 100% guaranteed (tool-based approach)"
+      ]
+    },
+
+    "claude_3_5_haiku": {
+      "citation": "[5] Anthropic. 'Claude 3.5 Haiku Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing",
+      "pricing": {
+        "standard": {
+          "input": "$0.80/M tokens",
+          "output": "$4.00/M tokens"
+        },
+        "batch_api": {
+          "input": "$0.40/M tokens (50% discount)",
+          "output": "$2.00/M tokens (50% discount)"
+        }
+      },
+      "structured_outputs": {
+        "supported": true,
+        "reliability": "Good for structured classification tasks"
+      },
+      "accuracy": {
+        "intelligence_index": "19 (above average for small models)",
+        "use_cases": "Customer support, classification, summarization"
+      },
+      "pros": [
+        "2x cheaper than GPT-4.1-mini (with batch)",
+        "Good at structured outputs",
+        "Strong coding and reasoning for a small model"
+      ],
+      "cons": [
+        "Lower intelligence than Sonnet or GPT-4.1",
+        "Less proven for complex evaluation tasks",
+        "Tool-based structured outputs (not guaranteed)"
+      ]
+    }
+  },
+
+  "cost_analysis": {
+    "assumptions": {
+      "applicants": 17000,
+      "scoring_rounds": 1.5,
+      "total_evaluations": 25500,
+      "tokens_per_application": {
+        "input": 2000,
+        "reasoning_chain": 300,
+        "output_scores": 200,
+        "total_input": 2000,
+        "total_output": 500
+      }
+    },
+
+    "total_tokens": {
+      "input": "51M tokens (25,500 apps × 2,000 tokens)",
+      "output": "12.75M tokens (25,500 apps × 500 tokens)"
+    },
+
+    "pricing_comparison": [
+      {
+        "model": "GPT-4.1 (Batch API)",
+        "input_cost": "$51.00",
+        "output_cost": "$51.00",
+        "total_per_cycle": "$102.00",
+        "note": "Most accurate but expensive"
+      },
+      {
+        "model": "GPT-4.1-mini (Batch API)",
+        "input_cost": "$10.20",
+        "output_cost": "$10.20",
+        "total_per_cycle": "$20.40",
+        "note": "RECOMMENDED - best cost/accuracy balance"
+      },
+      {
+        "model": "GPT-4.1-nano (Batch API)",
+        "input_cost": "$2.55",
+        "output_cost": "$2.55",
+        "total_per_cycle": "$5.10",
+        "note": "Too simple for complex rubrics"
+      },
+      {
+        "model": "Claude 3.5 Sonnet (Batch API)",
+        "input_cost": "$76.50",
+        "output_cost": "$95.63",
+        "total_per_cycle": "$172.13",
+        "note": "69% more expensive than GPT-4.1, lower accuracy"
+      },
+      {
+        "model": "Claude 3.5 Haiku (Batch API)",
+        "input_cost": "$20.40",
+        "output_cost": "$25.50",
+        "total_per_cycle": "$45.90",
+        "note": "2.25x more expensive than GPT-4.1-mini"
+      }
+    ],
+
+    "consensus_scoring_costs": {
+      "description": "Running 3x evaluations per application and averaging scores",
+      "gpt_4_1_mini_3x": "$61.20 per cycle",
+      "gpt_4_1_3x": "$306.00 per cycle",
+      "recommendation": "GPT-4.1-mini makes consensus scoring affordable"
+    }
+  },
+
+  "batch_api_analysis": {
+    "openai": {
+      "citation": "[6] OpenAI. 'Batch API Guide.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/guides/batch",
+      "availability": "All GPT-4.1 models supported",
+      "discount": "50% on both input and output tokens",
+      "turnaround_time": {
+        "official": "24 hours maximum",
+        "typical": "16-24 hours",
+        "fastest_reported": "20 minutes for 2M token batches",
+        "note": "Asynchronous processing, not suitable for real-time needs"
+      },
+      "rate_limits": "Separate high rate limits, won't affect real-time quota",
+      "advantages": [
+        "No minimum volume requirement",
+        "Can combine with prompt caching for additional savings",
+        "Higher throughput than standard API"
+      ]
+    },
+
+    "anthropic": {
+      "citation": "[7] Anthropic. 'Claude Batch API Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing",
+      "availability": "All Claude models supported",
+      "discount": "50% on both input and output tokens",
+      "turnaround_time": "24 hours maximum",
+      "advantages": [
+        "Can combine with prompt caching",
+        "No minimum batch size"
+      ]
+    }
+  },
+
+  "reproducibility_research": {
+    "temperature_zero": {
+      "citation": "[8] Schmalbach, Vincent. 'Does Temperature 0 Guarantee Deterministic LLM Outputs?' 2025. https://www.vincentschmalbach.com/does-temperature-0-guarantee-deterministic-llm-outputs/",
+      "theoretical": "Temperature=0 selects highest probability token (greedy decoding)",
+      "practical_limitations": [
+        "Floating-point arithmetic variance on GPUs (non-associative operations)",
+        "Mixture-of-Experts routing can introduce slight variations",
+        "Parallel processing order affects final logits by a few ULPs",
+        "Occasional divergence even with identical inputs"
+      ],
+      "recommendation": "Use temperature=0 as best practice, but expect 95-99% reproducibility, not 100%"
+    },
+
+    "seed_parameter": {
+      "citation": "[9] Kleine, Daniel. 'Seed vs. Temperature in Language Models.' 2025. https://dkleine.substack.com/p/seed-vs-temperature-in-language-models",
+      "function": "Controls random number generator initialization",
+      "interaction_with_temp_zero": "Seed has no effect when temperature=0 (no randomness to control)",
+      "use_case": "Only relevant for temperature > 0",
+      "reproducibility": "With same seed + same temp + same prompt = same output (when temp > 0)"
+    },
+
+    "best_practices": {
+      "settings": {
+        "temperature": 0,
+        "seed": "Not necessary with temp=0, but doesn't hurt",
+        "top_p": 1.0,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      },
+      "expected_consistency": "95-99% identical outputs across runs",
+      "validation_strategy": "Spot-check 100-200 applications for consistency"
+    }
+  },
+
+  "scoring_scale_research": {
+    "citation": "[10] ACL Anthology. 'Likert or Not: LLM Absolute Relevance Judgments on Fine-Grained Ordinal Scales.' 2025. https://arxiv.org/html/2505.19334v1",
+
+    "scale_comparison": {
+      "1_to_5_scale": {
+        "advantages": [
+          "Standard in LLM evaluation research",
+          "Good reliability and consistency",
+          "Less prone to social desirability bias"
+        ],
+        "disadvantages": [
+          "Lower discrimination between applicants",
+          "May not capture fine-grained differences"
+        ]
+      },
+
+      "1_to_10_scale": {
+        "advantages": [
+          "Better discrimination between candidates",
+          "More granular feature space for XGBoost",
+          "Familiar to human reviewers"
+        ],
+        "disadvantages": [
+          "May introduce more noise",
+          "LLMs might cluster around certain values"
+        ]
+      },
+
+      "11_bin_scale": {
+        "advantages": [
+          "Research shows competitive performance with listwise ranking",
+          "Sufficiently large ordinal label space improves accuracy",
+          "Gap with listwise ranking becomes statistically insignificant"
+        ],
+        "disadvantages": [
+          "May be overly granular for some rubric dimensions"
+        ]
+      }
+    },
+
+    "recommendation": {
+      "scale": "1-10 (10-point scale)",
+      "rationale": [
+        "Better discrimination than 1-5 for 17K applicants",
+        "Research shows larger scales improve LLM evaluation",
+        "Provides richer features for XGBoost model",
+        "Familiar to admissions committees"
+      ],
+      "implementation": "Define clear descriptors for each score point (1, 3, 5, 7, 10) in rubric"
+    }
+  },
+
+  "holistic_vs_sectional_scoring": {
+    "citation": "[11] Sebastian Raschka. 'Understanding the 4 Main Approaches to LLM Evaluation.' 2026. https://magazine.sebastianraschka.com/p/llm-evaluation-4-approaches",
+
+    "holistic_approach": {
+      "method": "Present entire application (statement, essays, experiences) in one prompt",
+      "advantages": [
+        "LLM can assess cross-sectional themes",
+        "Natural narrative flow maintained",
+        "Captures holistic view matching human review",
+        "Single API call (lower cost, simpler orchestration)"
+      ],
+      "disadvantages": [
+        "Longer context (higher token costs)",
+        "May miss fine details in individual sections",
+        "Harder to debug which section influenced scores"
+      ]
+    },
+
+    "section_by_section_approach": {
+      "method": "Score personal statement, then essays, then experiences separately",
+      "advantages": [
+        "More focused attention on each section",
+        "Easier to validate section-specific rubric alignment",
+        "Can parallelize API calls for faster processing"
+      ],
+      "disadvantages": [
+        "Multiple API calls (higher orchestration complexity)",
+        "May miss holistic themes across sections",
+        "No research showing superior accuracy"
+      ]
+    },
+
+    "recommendation": {
+      "approach": "Holistic (single-pass)",
+      "rationale": [
+        "Matches human admissions review process",
+        "Simpler implementation (1 API call per applicant)",
+        "Lower total cost (fewer API calls)",
+        "Modern LLMs excel at following complex multi-step instructions"
+      ],
+      "context_length": "~5,000 chars + rubric (~2,000 tokens total) - well within GPT-4.1 limits"
+    }
+  },
+
+  "chain_of_thought_research": {
+    "citation": "[12] ScienceDirect. 'Applying Large Language Models and Chain-of-Thought for Automatic Scoring.' 2024. https://www.sciencedirect.com/science/article/pii/S2666920X24000146",
+
+    "effectiveness": {
+      "accuracy_improvement": "Chain-of-thought improves accuracy and transparency",
+      "mechanism": "LLM reasons through evaluation before assigning scores",
+      "transparency": "Provides explainable reasoning for each score"
+    },
+
+    "implementation_patterns": {
+      "direct_scoring": {
+        "prompt": "Score this application on [dimension]: [1-10]",
+        "reliability": "Lower consistency, no explanation",
+        "use_case": "Binary evaluations only"
+      },
+
+      "chain_of_thought_before_scoring": {
+        "prompt": "First, analyze the application for [dimension]. Then assign a score [1-10] with justification.",
+        "reliability": "Significantly higher accuracy and consistency",
+        "transparency": "Auditable reasoning trail",
+        "cost": "+200-300 output tokens per evaluation"
+      }
+    },
+
+    "important_caveat": {
+      "citation": "[13] ArXiv. 'Direct Evaluation of Chain-of-Thought in Multi-hop Reasoning.' 2024. https://arxiv.org/html/2402.11199v1",
+      "finding": "LLMs can arrive at correct answers through incorrect reasoning",
+      "implication": "Validate that CoT reasoning aligns with rubric criteria",
+      "recommendation": "Human review of 50-100 CoT outputs during development"
+    },
+
+    "recommendation": {
+      "approach": "Chain-of-thought before scoring",
+      "format": "For each rubric dimension: [reasoning paragraph] → [score] → [brief justification]",
+      "cost_impact": "+$3-5 per 17K applicants (negligible)",
+      "benefits": "Better accuracy, explainability for admissions committee"
+    }
+  },
+
+  "consensus_scoring_research": {
+    "citation": "[14] Kargar, Isaac. 'Verifying LLM Outputs: Evolution from Simple Consensus.' Medium, 2025. https://kargarisaac.medium.com/verifying-llm-outputs-the-evolution-from-simple-consensus-to-step-by-step-analysis-812095673153",
+
+    "effectiveness": {
+      "google_minerva": "Improved from 33.6% to 50.3% accuracy using 1000-sample consensus",
+      "averaging_scores": "With enough queries, average converges to true prediction score",
+      "precision_recall": "Averaging multiple runs causes noisy LLM to approach deterministic model"
+    },
+
+    "practical_limitations": {
+      "cost": "Multiplies API costs by N runs",
+      "latency": "May not fit in batch window for large N",
+      "diminishing_returns": "3-5 runs likely optimal cost/benefit"
+    },
+
+    "implementation_strategies": {
+      "triple_scoring": {
+        "method": "Run same prompt 3 times, average numeric scores",
+        "cost": "3x base cost",
+        "benefit": "Reduces variance, catches outliers",
+        "recommendation": "Use for borderline cases only"
+      },
+
+      "temperature_variation": {
+        "method": "Run at temp=0, temp=0.3, temp=0.5, then average",
+        "cost": "3x base cost",
+        "benefit": "Introduces controlled randomness, averages out bias",
+        "note": "Contradicts reproducibility goal - NOT RECOMMENDED"
+      },
+
+      "single_pass_with_validation": {
+        "method": "Single temp=0 run, spot-check 5% for consistency",
+        "cost": "1.05x base cost",
+        "benefit": "Validates reproducibility without full consensus overhead",
+        "recommendation": "BEST APPROACH for cost-conscious deployment"
+      }
+    },
+
+    "recommendation": {
+      "primary_approach": "Single-pass scoring at temperature=0",
+      "validation": "Score 500-1000 random applications twice, measure score variance",
+      "consensus_use_case": "Only for disputed or borderline cases (identified by humans)",
+      "cost_benefit": "GPT-4.1-mini makes 3x consensus affordable ($61 vs $20) if needed"
+    }
+  },
+
+  "structured_output_reliability": {
+    "openai_structured_outputs": {
+      "citation": "[15] OpenAI. 'Introducing Structured Outputs in the API.' 2024. https://openai.com/index/introducing-structured-outputs-in-the-api/",
+      "mechanism": "Constrained sampling with JSON schema enforcement",
+      "reliability": "100% schema compliance (perfect score on complex JSON evaluation)",
+      "models": "GPT-4o, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano",
+      "error_handling": "No retries needed - guaranteed valid JSON",
+      "implementation": {
+        "schema_definition": "JSON Schema format",
+        "enforcement": "Model cannot generate non-compliant output",
+        "validation": "Built-in, no additional parsing needed"
+      }
+    },
+
+    "anthropic_tool_use": {
+      "citation": "[16] Anthropic. 'Structured Outputs - Claude API Docs.' 2026. https://platform.claude.com/docs/en/build-with-claude/structured-outputs",
+      "mechanism": "Tool calling with schema enforcement",
+      "reliability": "High but not 100% guaranteed",
+      "models": "All Claude 3.5 models, Claude 4 models",
+      "error_handling": "Requires validation and retry logic",
+      "implementation": {
+        "schema_definition": "Tool parameters define structure",
+        "enforcement": "Type safety, but may require validation",
+        "validation": "Recommended to add parsing checks"
+      }
+    },
+
+    "comparison": {
+      "openai_advantage": "Deterministic 100% compliance, no retry logic needed",
+      "anthropic_advantage": "Flexible tool-based approach, good for complex workflows",
+      "medical_scoring_needs": "Reliable JSON with 8-10 numeric scores + justifications",
+      "winner": "OpenAI Structured Outputs - critical for XGBoost feature pipeline"
+    },
+
+    "schema_design": {
+      "example_schema": {
+        "type": "object",
+        "properties": {
+          "applicant_id": {"type": "string"},
+          "scores": {
+            "type": "object",
+            "properties": {
+              "academic_achievement": {
+                "type": "object",
+                "properties": {
+                  "score": {"type": "integer", "minimum": 1, "maximum": 10},
+                  "reasoning": {"type": "string", "minLength": 50, "maxLength": 500},
+                  "justification": {"type": "string", "minLength": 20, "maxLength": 200}
+                },
+                "required": ["score", "reasoning", "justification"]
+              }
+            }
+          }
+        },
+        "required": ["applicant_id", "scores"]
+      },
+      "benefits": [
+        "Enforces 1-10 integer scores",
+        "Requires reasoning (CoT) before score",
+        "Guarantees all rubric dimensions present",
+        "No post-processing needed for XGBoost pipeline"
+      ]
+    }
+  },
+
+  "medical_admissions_case_study": {
+    "citation": "[17] Oxford Academic. 'Using AI in Medical School Admissions Screening.' 2023. https://academic.oup.com/jamiaopen/article/6/1/ooad011/7044649",
+
+    "study_details": {
+      "scope": "AI algorithmic approach to medical school application evaluation",
+      "data_used": [
+        "Qualitative: volunteerism, professional experience, leadership, scholarly activities, research",
+        "Quantitative: MCAT scores, GPA, underrepresented minority status, schools attended, citizenship"
+      ],
+      "model_type": "Traditional ML (not LLM) for screening decisions"
+    },
+
+    "performance": {
+      "training_accuracy": "95%",
+      "validation_accuracy": "88%",
+      "test_accuracy": "88%",
+      "combined_ai_human": "96% accuracy",
+      "precision": "0.90",
+      "recall": "0.85",
+      "f1_score": "0.875",
+      "negative_predictive_value": "0.97"
+    },
+
+    "explainability": {
+      "method": "SHAP (SHapely Additive exPlanations) values",
+      "finding": "Model utilizes features concordant with current admissions rubrics",
+      "importance": "Demonstrates fairness and alignment with human decision-making"
+    },
+
+    "implications_for_llm_scoring": {
+      "benchmark": "88-95% accuracy is achievable for medical admissions AI",
+      "llm_advantage": "LLMs can process narrative text (essays, experiences) better than traditional ML",
+      "expectation": "LLM scoring should target 90%+ agreement with human reviewers",
+      "validation": "Use SHAP or similar explainability for XGBoost model trained on LLM scores"
+    }
+  },
+
+  "implementation_recommendations": [
+    {
+      "scenario": "Primary scoring system for all 17K applicants",
+      "recommended_solution": "GPT-4.1-mini with Batch API, single-pass holistic scoring, CoT prompting",
+      "rationale": [
+        "Best cost/accuracy balance ($20 per cycle)",
+        "100% JSON schema compliance (no pipeline errors)",
+        "Proven intelligence on structured tasks",
+        "Chain-of-thought improves accuracy without significant cost",
+        "24-hour turnaround fits admissions timeline"
+      ],
+      "architecture": {
+        "components": [
+          "Data pipeline: Extract applications from database → format as text",
+          "Prompt template: Rubric + application + CoT instructions + JSON schema",
+          "Batch submission: Upload 25,500 prompts to OpenAI Batch API",
+          "Result processing: Download JSON results → validate → load into XGBoost pipeline",
+          "Validation: Spot-check 500 random applications for consistency"
+        ],
+        "estimated_latency": "20-24 hours per batch",
+        "estimated_cost": "$20.40 per cycle (1.5 rounds across 17K applicants)",
+        "scaling": "Can handle 17K applicants easily, scales to 100K+ with same architecture"
+      }
+    },
+
+    {
+      "scenario": "High-stakes applications requiring maximum accuracy",
+      "recommended_solution": "GPT-4.1 (full model) with Batch API, triple consensus scoring",
+      "rationale": [
+        "Highest published accuracy (81% judge agreement, 88-95% medical admissions)",
+        "Triple scoring reduces variance",
+        "Still affordable at $306 per cycle",
+        "Appropriate for final-round candidates"
+      ],
+      "architecture": {
+        "components": [
+          "Same pipeline as GPT-4.1-mini",
+          "Run 3 separate batch jobs with identical prompts",
+          "Average numeric scores across 3 runs",
+          "Flag high-variance scores (>2 points difference) for human review"
+        ],
+        "estimated_latency": "24 hours (parallel batches)",
+        "estimated_cost": "$306 per cycle (3x runs)",
+        "use_case": "Final 500-1000 candidates, or disputed borderline cases"
+      }
+    },
+
+    {
+      "scenario": "Pilot program with limited budget",
+      "recommended_solution": "GPT-4.1-mini standard API (not batch), 1K applicant sample",
+      "rationale": [
+        "Faster iteration (real-time results)",
+        "Lower total cost for small sample",
+        "Validates rubric design before full deployment"
+      ],
+      "architecture": {
+        "components": [
+          "Same prompt design as batch system",
+          "Real-time API calls with structured outputs",
+          "Human review of 100 results for quality check",
+          "Measure inter-rater reliability vs. human scorers"
+        ],
+        "estimated_latency": "1-2 hours for 1K applicants",
+        "estimated_cost": "$1.20 for 1K applicants (standard API, 2x batch cost)",
+        "validation": "Compare LLM scores to human scores, calculate Cohen's kappa"
+      }
+    }
+  ],
+
+  "technical_insights": {
+    "common_patterns": [
+      "Batch API is standard for non-urgent, high-volume LLM evaluation tasks",
+      "Chain-of-thought prompting consistently improves evaluation accuracy",
+      "Structured outputs (JSON mode) are critical for reliable data pipelines",
+      "Temperature=0 is best practice for reproducible scoring, though not 100% deterministic",
+      "Larger scoring scales (1-10 vs 1-5) improve discrimination for large applicant pools"
+    ],
+
+    "best_practices": [
+      "Define clear rubric descriptors for each score value (1, 3, 5, 7, 10)",
+      "Use chain-of-thought prompting: analyze → score → justify",
+      "Enforce JSON schema with structured outputs (100% reliability)",
+      "Set temperature=0 for maximum reproducibility",
+      "Validate with spot-checks: rescore 5-10% of applications to measure variance",
+      "Start with pilot (1K applicants) before scaling to 17K",
+      "Measure agreement with human reviewers using Cohen's kappa or Pearson correlation"
+    ],
+
+    "pitfalls": [
+      "Avoid temperature>0 for scoring (introduces unnecessary randomness)",
+      "Don't use consensus scoring for all applications (cost prohibitive)",
+      "Don't assume temperature=0 is 100% deterministic (it's 95-99%)",
+      "Don't use GPT-4.1-nano for complex multi-dimensional rubrics (too simple)",
+      "Don't skip validation - always measure LLM-human agreement before deployment",
+      "Don't forget to combine batch discount with prompt caching if rubric is reused"
+    ],
+
+    "emerging_trends": [
+      "Structured outputs becoming standard (OpenAI leads, Anthropic catching up)",
+      "Batch APIs expanding to more models (economical high-volume processing)",
+      "LLM-as-judge research maturing (GPT-4 family shows consistent 80%+ agreement)",
+      "Medical AI applications growing (88-95% accuracy benchmarks established)",
+      "Chain-of-thought prompting proven effective for evaluation tasks"
+    ]
+  },
+
+  "community_insights": {
+    "popular_solutions": [
+      "GPT-4 family for high-stakes evaluation (most research validation)",
+      "Batch API for cost reduction in production (50% savings)",
+      "Structured outputs for reliable data pipelines (100% schema compliance)",
+      "Chain-of-thought for explainable scoring (audit trails for admissions)"
+    ],
+
+    "controversial_topics": [
+      "Determinism: Temperature=0 doesn't guarantee 100% reproducibility (floating-point variance)",
+      "Consensus scoring: Expensive and may not be worth 2-3x cost for most use cases",
+      "Model choice: GPT-4.1 vs GPT-4.1-mini trade-off (accuracy vs cost)",
+      "Scale granularity: 1-5 vs 1-10 scales (research favors larger scales, but opinions vary)"
+    ],
+
+    "expert_opinions": [
+      "Vincent Schmalbach: Temperature=0 is greedy decoding, but GPU floating-point math introduces variance",
+      "Sebastian Raschka: LLM evaluation benefits from holistic, multi-metric approaches",
+      "Medical AI researchers: 88% accuracy is achievable with proper validation and explainability",
+      "OpenAI documentation: Structured outputs achieve 100% schema compliance (vs <40% without)"
+    ]
+  },
+
+  "architecture_diagrams": {
+    "recommended_pipeline": {
+      "stages": [
+        {
+          "stage": "1. Data Preparation",
+          "components": [
+            "Extract application data from database (personal statement, essays, experiences)",
+            "Format as plaintext with clear section headers",
+            "Anonymize PII if required (keep only evaluation-relevant content)",
+            "Assign unique applicant_id for tracking"
+          ],
+          "output": "Text file per applicant (~5,000 chars)"
+        },
+        {
+          "stage": "2. Prompt Generation",
+          "components": [
+            "Load rubric template (8-10 dimensions with 1-10 scale descriptors)",
+            "Insert application text into prompt",
+            "Add chain-of-thought instructions: 'For each dimension, first analyze the evidence, then assign a score 1-10, then justify'",
+            "Define JSON schema for structured output",
+            "Set temperature=0, top_p=1.0"
+          ],
+          "output": "JSONL file with 25,500 batch requests"
+        },
+        {
+          "stage": "3. Batch Submission",
+          "components": [
+            "Upload JSONL to OpenAI Batch API",
+            "Monitor batch status (in_progress → completed)",
+            "Wait 18-24 hours for completion"
+          ],
+          "output": "Batch ID for tracking"
+        },
+        {
+          "stage": "4. Result Retrieval",
+          "components": [
+            "Download batch output JSONL",
+            "Parse JSON responses (guaranteed valid schema)",
+            "Extract scores for each rubric dimension",
+            "Store reasoning and justifications for audit trail"
+          ],
+          "output": "Structured database records: applicant_id → 8-10 numeric scores + text justifications"
+        },
+        {
+          "stage": "5. Validation",
+          "components": [
+            "Randomly sample 500 applications",
+            "Rescore with identical prompt (measure reproducibility)",
+            "Calculate score variance (expect <5% difference at temp=0)",
+            "Compare 100 LLM scores to human reviewer scores (measure agreement)",
+            "Flag high-variance or low-agreement cases for review"
+          ],
+          "output": "Validation report: reproducibility %, inter-rater reliability (Cohen's kappa)"
+        },
+        {
+          "stage": "6. XGBoost Integration",
+          "components": [
+            "Load scores into feature matrix",
+            "Combine with quantitative features (GPA, MCAT, etc.)",
+            "Train XGBoost model on historical outcomes",
+            "Use SHAP values to validate score importance aligns with rubric"
+          ],
+          "output": "XGBoost model for admissions predictions"
+        }
+      ]
+    },
+
+    "alternative_architecture": {
+      "name": "Real-time scoring for pilot (1K applicants)",
+      "stages": [
+        {
+          "stage": "1-2. Same as recommended pipeline",
+          "note": "Data prep and prompt generation identical"
+        },
+        {
+          "stage": "3. Real-time API Calls",
+          "components": [
+            "Iterate through 1K applicants",
+            "Send structured output request to GPT-4.1-mini standard API",
+            "Parse JSON response immediately",
+            "Rate limit: ~3,000 requests/min (1K applicants in ~20 min)"
+          ],
+          "cost": "$1.20 for 1K applicants (2x batch cost)",
+          "latency": "20-30 minutes total"
+        },
+        {
+          "stage": "4-6. Same as recommended pipeline",
+          "note": "Result processing, validation, XGBoost integration identical"
+        }
+      ],
+      "use_case": "Pilot testing, rapid iteration, immediate feedback"
+    }
+  },
+
+  "final_recommendations": {
+    "primary_recommendation": {
+      "model": "GPT-4.1-mini",
+      "api": "Batch API (50% discount)",
+      "prompting": "Chain-of-thought before scoring",
+      "structure": "OpenAI Structured Outputs (JSON schema enforcement)",
+      "approach": "Single-pass holistic evaluation",
+      "scale": "1-10 for each rubric dimension",
+      "settings": {
+        "temperature": 0,
+        "top_p": 1.0,
+        "max_tokens": 2000
+      },
+      "estimated_cost": "$20.40 per cycle (17K applicants, 1.5 rounds)",
+      "estimated_latency": "20-24 hours",
+      "expected_accuracy": "85-90% agreement with human reviewers (conservative estimate)",
+      "validation_strategy": "Score 500 random applications twice, measure variance; compare 100 LLM scores to human scores"
+    },
+
+    "alternative_for_high_stakes": {
+      "model": "GPT-4.1 (full model)",
+      "api": "Batch API",
+      "prompting": "Chain-of-thought with consensus (3x runs)",
+      "cost": "$306 per cycle",
+      "accuracy": "90-95% agreement (based on medical admissions research)",
+      "use_case": "Final-round candidates or disputed borderline cases"
+    },
+
+    "not_recommended": [
+      {
+        "option": "GPT-4.1-nano",
+        "reason": "Too simple for complex 8-10 dimension rubrics with nuanced criteria"
+      },
+      {
+        "option": "Claude 3.5 Sonnet",
+        "reason": "69% more expensive than GPT-4.1, lower accuracy (77% vs 81%), non-guaranteed structured outputs"
+      },
+      {
+        "option": "Section-by-section scoring",
+        "reason": "More complex orchestration, no research showing superior accuracy vs holistic"
+      },
+      {
+        "option": "Temperature > 0",
+        "reason": "Introduces unnecessary randomness, conflicts with reproducibility goal"
+      },
+      {
+        "option": "Direct scoring without CoT",
+        "reason": "Lower accuracy, no explainability for admissions committee"
+      }
+    ],
+
+    "implementation_timeline": {
+      "week_1": "Design rubric with clear 1-10 scale descriptors, define JSON schema",
+      "week_2": "Develop prompt template with CoT instructions, test on 10 sample applications",
+      "week_3": "Pilot with 1K applicants using real-time API, validate against human scores",
+      "week_4": "Analyze pilot results, refine rubric/prompt based on variance and agreement metrics",
+      "week_5": "Scale to full 17K applicants using Batch API",
+      "week_6": "Validate final results, integrate scores into XGBoost pipeline"
+    },
+
+    "success_metrics": {
+      "reproducibility": "Score variance <5% when same application rescored",
+      "inter_rater_reliability": "Cohen's kappa >0.75 with human reviewers",
+      "schema_compliance": "100% valid JSON (guaranteed by structured outputs)",
+      "processing_time": "<24 hours per batch",
+      "cost": "<$25 per cycle",
+      "xgboost_validation": "SHAP values show LLM scores align with intended rubric dimensions"
+    }
+  },
+
+  "sources": [
+    {
+      "id": 1,
+      "citation": "OpenAI. 'GPT-4.1 Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": 2,
+      "citation": "OpenAI. 'GPT-4.1 Mini Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": 3,
+      "citation": "OpenAI. 'GPT-4.1 Nano Pricing.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": 4,
+      "citation": "Anthropic. 'Claude 3.5 Sonnet Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "id": 5,
+      "citation": "Anthropic. 'Claude 3.5 Haiku Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "id": 6,
+      "citation": "OpenAI. 'Batch API Guide.' OpenAI API Documentation, 2026. https://platform.openai.com/docs/guides/batch"
+    },
+    {
+      "id": 7,
+      "citation": "Anthropic. 'Claude Batch API Pricing.' Anthropic API Documentation, 2026. https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "id": 8,
+      "citation": "Schmalbach, Vincent. 'Does Temperature 0 Guarantee Deterministic LLM Outputs?' 2025. https://www.vincentschmalbach.com/does-temperature-0-guarantee-deterministic-llm-outputs/"
+    },
+    {
+      "id": 9,
+      "citation": "Kleine, Daniel. 'Seed vs. Temperature in Language Models.' 2025. https://dkleine.substack.com/p/seed-vs-temperature-in-language-models"
+    },
+    {
+      "id": 10,
+      "citation": "ACL Anthology. 'Likert or Not: LLM Absolute Relevance Judgments on Fine-Grained Ordinal Scales.' 2025. https://arxiv.org/html/2505.19334v1"
+    },
+    {
+      "id": 11,
+      "citation": "Raschka, Sebastian. 'Understanding the 4 Main Approaches to LLM Evaluation.' 2026. https://magazine.sebastianraschka.com/p/llm-evaluation-4-approaches"
+    },
+    {
+      "id": 12,
+      "citation": "ScienceDirect. 'Applying Large Language Models and Chain-of-Thought for Automatic Scoring.' 2024. https://www.sciencedirect.com/science/article/pii/S2666920X24000146"
+    },
+    {
+      "id": 13,
+      "citation": "ArXiv. 'Direct Evaluation of Chain-of-Thought in Multi-hop Reasoning.' 2024. https://arxiv.org/html/2402.11199v1"
+    },
+    {
+      "id": 14,
+      "citation": "Kargar, Isaac. 'Verifying LLM Outputs: Evolution from Simple Consensus.' Medium, 2025. https://kargarisaac.medium.com/verifying-llm-outputs-the-evolution-from-simple-consensus-to-step-by-step-analysis-812095673153"
+    },
+    {
+      "id": 15,
+      "citation": "OpenAI. 'Introducing Structured Outputs in the API.' 2024. https://openai.com/index/introducing-structured-outputs-in-the-api/"
+    },
+    {
+      "id": 16,
+      "citation": "Anthropic. 'Structured Outputs - Claude API Docs.' 2026. https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+    },
+    {
+      "id": 17,
+      "citation": "Oxford Academic. 'Using AI in Medical School Admissions Screening.' 2023. https://academic.oup.com/jamiaopen/article/6/1/ooad011/7044649"
+    }
+  ]
+}

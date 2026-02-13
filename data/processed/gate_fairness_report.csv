@@ -1,0 +1,23 @@
+attribute,group,n,rejection_rate,actual_low_rate,rejection_rate_minus_actual,rejection_di_ratio,passes_80pct_rule
+Citizenship,USA,600,0.9883333333333333,0.39166666666666666,0.5966666666666667,0.8,True
+Citizenship,BRA,1,1.0,1.0,0.0,0.8,True
+Citizenship,MEX,4,1.0,0.75,0.25,0.8,True
+Citizenship,CAN,4,1.0,0.25,0.75,0.8,True
+Citizenship,KOR,6,1.0,0.5,0.5,0.8,True
+Citizenship,VNM,1,1.0,0.0,1.0,0.8,True
+Citizenship,TUR,2,1.0,0.5,0.5,0.8,True
+Citizenship,IND,5,0.8,0.4,0.4,0.8,True
+Citizenship,NGA,4,1.0,0.0,1.0,0.8,True
+Citizenship,SLV,1,1.0,0.0,1.0,0.8,True
+Citizenship,CHN,2,1.0,0.5,0.5,0.8,True
+Citizenship,ARG,1,1.0,0.0,1.0,0.8,True
+Citizenship,LKA,1,1.0,0.0,1.0,0.8,True
+Citizenship,DEU,1,1.0,1.0,0.0,0.8,True
+Citizenship,VCT,1,1.0,0.0,1.0,0.8,True
+Gender,Male,8,0.75,0.125,0.625,0.75,False
+Gender,Man,221,0.9819004524886877,0.3936651583710407,0.588235294117647,0.75,False
+Gender,Woman,403,0.9950372208436724,0.3970223325062035,0.598014888337469,0.75,False
+Gender,Another Gender Identity,2,1.0,0.0,1.0,0.75,False
+Age,31+,44,0.9090909090909091,0.3409090909090909,0.5681818181818181,0.9090909090909091,True
+Age,18-24,479,0.9916492693110647,0.3945720250521921,0.5970772442588725,0.9090909090909091,True
+Age,25-30,111,1.0,0.3963963963963964,0.6036036036036037,0.9090909090909091,True

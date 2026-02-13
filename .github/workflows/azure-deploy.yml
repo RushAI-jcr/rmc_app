@@ -1,0 +1,326 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  AZURE_RESOURCE_GROUP: rmc-triage-rg
+  ACR_NAME: rmctriageacr
+
+jobs:
+  # ============================================================================
+  # BUILD AND TEST
+  # ============================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rmc_triage_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd api
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rmc_triage_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-secret
+        run: |
+          cd api
+          pytest --cov=api --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./api/coverage.xml
+          flags: api
+        continue-on-error: true
+
+  # ============================================================================
+  # SECURITY SCAN
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+
+  # ============================================================================
+  # BUILD AND DEPLOY
+  # ============================================================================
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: ${{ steps.get-urls.outputs.frontend_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Get image tag
+        id: get-tag
+        run: |
+          IMAGE_TAG=$(git rev-parse --short HEAD)
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag: $IMAGE_TAG"
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/rmc-api:${{ steps.get-tag.outputs.IMAGE_TAG }}
+            ${{ env.ACR_NAME }}.azurecr.io/rmc-api:latest
+          cache-from: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/rmc-api:buildcache
+          cache-to: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/rmc-api:buildcache,mode=max
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/rmc-frontend:${{ steps.get-tag.outputs.IMAGE_TAG }}
+            ${{ env.ACR_NAME }}.azurecr.io/rmc-frontend:latest
+          cache-from: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/rmc-frontend:buildcache
+          cache-to: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/rmc-frontend:buildcache,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}
+
+      - name: Run database migrations
+        run: |
+          # Get DATABASE_URL from Key Vault
+          DATABASE_URL=$(az keyvault secret show \
+            --vault-name rmc-triage-kv \
+            --name DATABASE-URL \
+            --query value -o tsv)
+
+          # Run migrations using temporary container
+          docker run --rm \
+            -e DATABASE_URL="$DATABASE_URL" \
+            ${{ env.ACR_NAME }}.azurecr.io/rmc-api:${{ steps.get-tag.outputs.IMAGE_TAG }} \
+            sh -c "pip install alembic && alembic upgrade head"
+
+      - name: Deploy Celery Worker
+        run: |
+          az containerapp update \
+            --name rmc-celery-worker \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/rmc-api:${{ steps.get-tag.outputs.IMAGE_TAG }}
+
+      - name: Deploy API
+        run: |
+          az containerapp update \
+            --name rmc-api \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/rmc-api:${{ steps.get-tag.outputs.IMAGE_TAG }}
+
+      - name: Deploy Frontend
+        run: |
+          az containerapp update \
+            --name rmc-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/rmc-frontend:${{ steps.get-tag.outputs.IMAGE_TAG }}
+
+      - name: Get application URLs
+        id: get-urls
+        run: |
+          API_FQDN=$(az containerapp show \
+            --name rmc-api \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          FRONTEND_FQDN=$(az containerapp show \
+            --name rmc-frontend \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          echo "API_URL=https://$API_FQDN" >> $GITHUB_OUTPUT
+          echo "FRONTEND_URL=https://$FRONTEND_FQDN" >> $GITHUB_OUTPUT
+
+          echo "### Deployment URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- API: https://$API_FQDN" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: https://$FRONTEND_FQDN" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run health checks
+        run: |
+          echo "Waiting for services to stabilize..."
+          sleep 15
+
+          # Check API health
+          API_URL="${{ steps.get-urls.outputs.API_URL }}"
+          echo "Checking API health at $API_URL/health"
+
+          for i in {1..10}; do
+            if curl -sf "$API_URL/health" > /dev/null; then
+              echo "✓ API health check passed"
+              break
+            else
+              echo "Attempt $i/10 failed, retrying in 10s..."
+              sleep 10
+            fi
+
+            if [ $i -eq 10 ]; then
+              echo "⚠ API health check failed after 10 attempts"
+              exit 1
+            fi
+          done
+
+          # Check frontend
+          FRONTEND_URL="${{ steps.get-urls.outputs.FRONTEND_URL }}"
+          echo "Checking frontend at $FRONTEND_URL"
+
+          if curl -sf "$FRONTEND_URL" > /dev/null; then
+            echo "✓ Frontend health check passed"
+          else
+            echo "⚠ Frontend health check failed"
+            exit 1
+          fi
+
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ steps.get-tag.outputs.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Application URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- API: ${{ steps.get-urls.outputs.API_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ steps.get-urls.outputs.FRONTEND_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rollback Command" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "cd infra && ./rollback.sh ${{ steps.get-tag.outputs.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # NOTIFY
+  # ============================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ needs.deploy.result }}"
+          COLOR="good"
+          if [ "$STATUS" = "failure" ]; then
+            COLOR="danger"
+          fi
+
+          PAYLOAD=$(cat <<EOF
+          {
+            "attachments": [{
+              "color": "$COLOR",
+              "title": "Deployment $STATUS",
+              "text": "Branch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nActor: ${{ github.actor }}",
+              "footer": "GitHub Actions",
+              "ts": $(date +%s)
+            }]
+          }
+          EOF
+          )
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"
