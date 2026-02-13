@@ -17,18 +17,20 @@ export default function PipelinePage() {
   const [result, setResult] = useState<{ status: string; total_processed: number; tier_distribution: Record<string, number> } | null>(null);
   const [summary, setSummary] = useState<TriageSummary | null>(null);
   const [config, setConfig] = useState("A_Structured");
+  const [error, setError] = useState<string | null>(null);
 
   const handleRun = async () => {
     setRunning(true);
+    setError(null);
     try {
       const res = await runTriage(config);
       setResult(res);
       const sum = await getTriageSummary(config);
       setSummary(sum);
     } catch (e) {
-      alert(`Error: ${e}`);
+      setError(e instanceof Error ? e.message : "Failed to run triage");
+      setRunning(false);
     }
-    setRunning(false);
   };
 
   return (
@@ -56,6 +58,11 @@ export default function PipelinePage() {
       <Card className="mb-8">
         <CardHeader><CardTitle>Run Triage</CardTitle></CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
           <div className="flex items-center gap-4">
             <select
               value={config}

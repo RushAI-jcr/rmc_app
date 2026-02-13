@@ -14,21 +14,24 @@ export function FlagIncorrect({ amcasId, onComplete }: FlagIncorrectProps) {
   const [selectedReason, setSelectedReason] = useState("");
   const [otherText, setOtherText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = async () => {
     setSaving(true);
+    setError(null);
     try {
       await submitDecision(amcasId, "confirm", "");
       onComplete("confirm");
     } catch (e) {
-      alert(`Failed: ${e}`);
+      setError(e instanceof Error ? e.message : "Failed to save decision");
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleFlag = async () => {
     if (!selectedReason) return;
     setSaving(true);
+    setError(null);
     const notes = selectedReason === "Other" ? otherText : "";
     try {
       await submitDecision(amcasId, "flag", notes, selectedReason);
@@ -37,13 +40,18 @@ export function FlagIncorrect({ amcasId, onComplete }: FlagIncorrectProps) {
       setSelectedReason("");
       setOtherText("");
     } catch (e) {
-      alert(`Failed: ${e}`);
+      setError(e instanceof Error ? e.message : "Failed to save flag");
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
     <div className="space-y-3">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
       <div className="flex gap-3">
         <button
           onClick={handleConfirm}

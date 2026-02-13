@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RubricScorecardView } from "@/components/applicant/rubric-scorecard";
 import { FlagIncorrect } from "@/components/applicant/flag-incorrect";
+import { ShapChart } from "@/components/charts/shap-chart";
 import { getApplicant } from "@/lib/api";
 import type { ApplicantDetail } from "@/lib/types";
 import { BUCKET_LABELS, TIER_COLORS } from "@/lib/types";
@@ -105,6 +106,19 @@ export default function ScorecardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* SHAP Drivers - Feature Importance */}
+          {detail.shap_drivers.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Score Drivers</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-xs text-raw-umber mb-3">
+                  Top features influencing this applicant's predicted score
+                </p>
+                <ShapChart drivers={detail.shap_drivers} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Class probabilities */}
           {detail.class_probabilities.length > 0 && (
