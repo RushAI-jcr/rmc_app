@@ -114,7 +114,8 @@ def _read_xlsx(
         base = data_dir or DATA_DIR
         folder = YEAR_FOLDERS.get(year, str(year))
         if file_key == "schools":
-            fname = FILE_MAP["schools_2024"] if year == 2024 else FILE_MAP["schools_2022_2023"]
+            # "8. School.xlsx" (2024) vs "8. Schools.xlsx" (older years)
+            fname = "8. School.xlsx" if year >= 2024 else "8. Schools.xlsx"
         else:
             fname = FILE_MAP[file_key]
         path = base / folder / fname

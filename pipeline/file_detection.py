@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 _FILENAME_TO_TYPE: dict[str, str] = {}
 for logical_name, fname in FILE_MAP.items():
     _FILENAME_TO_TYPE[fname.lower()] = logical_name
+# Handle both "8. School.xlsx" (2024) and "8. Schools.xlsx" (older years)
+_FILENAME_TO_TYPE["8. schools.xlsx"] = "schools"
 
 # Column signatures: if a file contains ALL of these columns, it's this type.
 # Checked in order -- first match wins.
@@ -30,7 +32,7 @@ _COLUMN_SIGNATURES: list[tuple[str, list[str]]] = [
     ("parents", ["edu_level"]),
     ("personal_statement", ["personal_statement"]),
     ("secondary_application", ["1_-_personal_attributes"]),
-    ("schools_2024", ["school_name"]),
+    ("schools", ["school_name"]),
     ("military", ["military_service_status"]),
     ("siblings", ["sibling"]),
     ("academic_records", ["gpa"]),

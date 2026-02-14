@@ -26,7 +26,7 @@ MAX_TOTAL_SIZE = 200 * 1024 * 1024  # 200 MB total
 REQUIRED_FILE_TYPES = {"applicants", "experiences"}
 OPTIONAL_FILE_TYPES = {
     "personal_statement", "secondary_application", "gpa_trend",
-    "language", "parents", "schools_2024", "schools_2022_2023",
+    "language", "parents", "schools",
     "military", "siblings", "academic_records",
 }
 
