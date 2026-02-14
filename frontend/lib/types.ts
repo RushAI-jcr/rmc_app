@@ -77,6 +77,7 @@ export interface ReviewQueueItem {
   decision: string | null;
   notes: string | null;
   flag_reason: string | null;
+  reviewer_username: string | null;
 }
 
 export interface StatsOverview {

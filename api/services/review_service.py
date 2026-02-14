@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from api.config import PROCESSED_DIR
-from api.db.models import ReviewDecision as ReviewDecisionModel
+from api.db.models import ReviewDecision as ReviewDecisionModel, User
 from api.services.data_service import DataStore
 
 logger = logging.getLogger(__name__)
@@ -34,13 +34,14 @@ def get_review_queue(
     if not predictions:
         return []
 
-    # Batch fetch all decisions for this cycle
+    # Batch fetch all decisions for this cycle with reviewer username
     decisions = (
-        db.query(ReviewDecisionModel)
+        db.query(ReviewDecisionModel, User.username)
+        .outerjoin(User, ReviewDecisionModel.reviewer_id == User.id)
         .filter(ReviewDecisionModel.cycle_year == cycle_year)
         .all()
     )
-    decision_map = {d.amcas_id: d for d in decisions}
+    decision_map = {d.amcas_id: (d, username) for d, username in decisions}
 
     queue = []
     for p in predictions:
@@ -59,7 +60,9 @@ def get_review_queue(
         else:
             reason = "Standard review"
 
-        decision_obj = decision_map.get(p["amcas_id"])
+        match = decision_map.get(p["amcas_id"])
+        decision_obj = match[0] if match else None
+        reviewer_username = match[1] if match else None
 
         item = {
             "amcas_id": p["amcas_id"],
@@ -72,6 +75,7 @@ def get_review_queue(
             "decision": decision_obj.decision if decision_obj else None,
             "notes": decision_obj.notes if decision_obj else None,
             "flag_reason": decision_obj.flag_reason if decision_obj else None,
+            "reviewer_username": reviewer_username,
         }
         queue.append(item)
 
@@ -91,7 +95,33 @@ def save_decision(
     predicted_tier: int | None = None,
     flag_reason: str | None = None,
 ) -> None:
-    """Save a review decision using PostgreSQL upsert."""
+    """Save a review decision using PostgreSQL upsert.
+
+    Logs the old decision to audit_log when overwriting.
+    """
+    # Check for existing decision to audit the change
+    existing = (
+        db.query(ReviewDecisionModel)
+        .filter(
+            ReviewDecisionModel.amcas_id == amcas_id,
+            ReviewDecisionModel.cycle_year == cycle_year,
+        )
+        .first()
+    )
+    if existing:
+        from api.services.audit_service import log_action
+        log_action(
+            db, user_id, "decision_changed",
+            resource_type="review", resource_id=str(amcas_id),
+            metadata={
+                "old_decision": existing.decision,
+                "old_flag_reason": existing.flag_reason,
+                "old_reviewer_id": str(existing.reviewer_id),
+                "new_decision": decision,
+                "new_flag_reason": flag_reason,
+            },
+        )
+
     stmt = pg_insert(ReviewDecisionModel).values(
         amcas_id=amcas_id,
         reviewer_id=user_id,
@@ -121,6 +151,24 @@ def save_decision(
         logger.info("Flagged applicant %d: %s", amcas_id, flag_reason)
     else:
         logger.info("Confirmed score for applicant %d", amcas_id)
+
+
+def get_progress(db: Session, cycle_year: int, total_in_queue: int) -> dict:
+    """Get review progress counts for a cycle."""
+    rows = (
+        db.query(ReviewDecisionModel.decision, func.count())
+        .filter(ReviewDecisionModel.cycle_year == cycle_year)
+        .group_by(ReviewDecisionModel.decision)
+        .all()
+    )
+    counts = {decision: count for decision, count in rows}
+    reviewed = sum(counts.values())
+    return {
+        "total_in_queue": total_in_queue,
+        "reviewed_count": reviewed,
+        "confirmed_count": counts.get("confirm", 0),
+        "flagged_count": counts.get("flag", 0),
+    }
 
 
 def get_decision_for_applicant(db: Session, amcas_id: int, cycle_year: int) -> ReviewDecisionModel | None:

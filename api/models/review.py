@@ -42,3 +42,4 @@ class ReviewQueueItem(BaseModel):
     decision: str | None = None
     notes: str | None = None
     flag_reason: str | None = None
+    reviewer_username: str | None = None

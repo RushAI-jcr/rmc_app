@@ -130,6 +130,22 @@ export async function getNextUnreviewed(config?: string): Promise<ReviewQueueIte
   return fetchJSON(`/api/review/queue/next?${sp}`);
 }
 
+export async function getReviewProgress(): Promise<{
+  total_in_queue: number;
+  reviewed_count: number;
+  confirmed_count: number;
+  flagged_count: number;
+}> {
+  return fetchJSON("/api/review/progress");
+}
+
+export async function getReviewDetail(amcasId: number): Promise<{
+  amcas_id: number;
+  rubric_scorecard: import("./types").RubricScorecard | null;
+}> {
+  return fetchJSON(`/api/review/queue/${amcasId}/detail`);
+}
+
 export async function getFlagSummary(): Promise<{ total_flags: number; by_reason: Record<string, number> }> {
   return fetchJSON("/api/review/flag-summary");
 }
