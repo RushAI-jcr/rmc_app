@@ -35,8 +35,7 @@ export default function ApplicantsPage() {
       <h2 className="text-2xl font-bold mb-2">Applicant Review</h2>
       {!showAllTiers && tierFilter === undefined && (
         <p className="text-sm text-raw-umber mb-4">
-          Showing Tier 2 (Recommended for Review) and Tier 3 (High Priority) only.
-          AI has narrowed {total} applicants to the strongest mission-aligned candidates for your expert review.
+          Showing {total} candidates in Tier 2 (Recommended) and Tier 3 (High Priority).
         </p>
       )}
 
