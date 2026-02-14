@@ -39,10 +39,12 @@ def flag_reasons(current_user: User = Depends(get_current_user)) -> list[str]:
 def flag_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    cycle_year: int = Depends(get_active_cycle_year),
 ) -> dict:
     """Get summary of flags for the current cycle."""
+    reviewer_id = None if current_user.role == "admin" else current_user.id
     log_action(db, current_user.id, "view_flag_summary", resource_type="review")
-    return get_flag_summary()
+    return get_flag_summary(db, cycle_year, reviewer_id=reviewer_id)
 
 
 @router.get("/queue/next")
@@ -73,7 +75,8 @@ def review_progress(
     """Get review progress counts for the active cycle."""
     store = request.app.state.store
     queue = get_review_queue(config, store, db=db, cycle_year=cycle_year)
-    return get_progress(db, cycle_year, total_in_queue=len(queue))
+    reviewer_id = None if current_user.role == "admin" else current_user.id
+    return get_progress(db, cycle_year, total_in_queue=len(queue), reviewer_id=reviewer_id)
 
 
 @router.get("/queue/{amcas_id}/detail")

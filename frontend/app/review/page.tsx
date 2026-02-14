@@ -16,6 +16,7 @@ export default function ReviewPage() {
   const [rubric, setRubric] = useState<RubricScorecard | null>(null);
   const [rubricLoading, setRubricLoading] = useState(false);
   const [changingDecision, setChangingDecision] = useState(false);
+  const [queueLoaded, setQueueLoaded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Load queue and auto-resume to first unreviewed
@@ -23,6 +24,7 @@ export default function ReviewPage() {
     Promise.all([getReviewQueue(), getNextUnreviewed()])
       .then(([q, next]) => {
         setQueue(q);
+        setQueueLoaded(true);
         if (next) {
           const idx = q.findIndex((item) => item.amcas_id === next.amcas_id);
           if (idx >= 0) setCurrentIdx(idx);
@@ -122,7 +124,21 @@ export default function ReviewPage() {
   }, [currentIdx, goTo]);
 
   if (error) return <p className="text-rose">{error}</p>;
-  if (!queue.length) return <p className="text-wash-gray">Loading review queue...</p>;
+  if (!queueLoaded) return <p className="text-wash-gray">Loading review queue...</p>;
+  if (queue.length === 0) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold mb-6">Guided Review</h2>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-raw-umber">
+              No applicants in the review queue. An admin needs to run the triage pipeline first.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Completion state
   if (allDone) {
@@ -227,7 +243,11 @@ export default function ReviewPage() {
 
             {/* Inline rubric scorecard */}
             {rubricLoading && (
-              <p className="text-sm text-wash-gray mb-4">Loading rubric...</p>
+              <div className="mb-4 space-y-3">
+                <div className="h-4 w-40 bg-gray rounded animate-pulse" />
+                <div className="h-4 w-full bg-gray rounded animate-pulse" />
+                <div className="h-4 w-3/4 bg-gray rounded animate-pulse" />
+              </div>
             )}
             {!rubricLoading && rubric && (
               <div className="mb-6 border border-gray rounded-lg p-4">

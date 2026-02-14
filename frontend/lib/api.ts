@@ -28,6 +28,12 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      const returnTo = encodeURIComponent(window.location.pathname);
+      window.location.href = `/login?returnTo=${returnTo}&expired=true`;
+      // Return a never-resolving promise so callers don't proceed
+      return new Promise<never>(() => {});
+    }
     const text = await res.text().catch(() => res.statusText);
     throw new Error(text || `API error: ${res.status}`);
   }

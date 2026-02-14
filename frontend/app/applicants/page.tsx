@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { useUser } from "@/components/auth-guard";
 import { getApplicants } from "@/lib/api";
 import type { ApplicantSummary } from "@/lib/types";
 
 export default function ApplicantsPage() {
   const router = useRouter();
+  const user = useUser();
   const [applicants, setApplicants] = useState<ApplicantSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -64,15 +66,17 @@ export default function ApplicantsPage() {
 
         <span className="text-sm text-raw-umber">{total} applicants</span>
 
-        <label className="flex items-center gap-2 ml-auto cursor-pointer text-sm text-raw-umber">
-          <input
-            type="checkbox"
-            checked={showAllTiers}
-            onChange={(e) => { setShowAllTiers(e.target.checked); setTierFilter(undefined); setPage(1); }}
-            className="rounded accent-legacy-green"
-          />
-          Show all tiers
-        </label>
+        {user?.role === "admin" && (
+          <label className="flex items-center gap-2 ml-auto cursor-pointer text-sm text-raw-umber">
+            <input
+              type="checkbox"
+              checked={showAllTiers}
+              onChange={(e) => { setShowAllTiers(e.target.checked); setTierFilter(undefined); setPage(1); }}
+              className="rounded accent-legacy-green"
+            />
+            Show all tiers
+          </label>
+        )}
       </div>
 
       {error && <p className="text-rose mb-4">{error}</p>}

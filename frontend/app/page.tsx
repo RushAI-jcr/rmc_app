@@ -3,17 +3,43 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TierChart } from "@/components/charts/tier-chart";
-import { getStats } from "@/lib/api";
+import { getStats, getReviewProgress, getFlagSummary } from "@/lib/api";
+import { useUser } from "@/components/auth-guard";
 import type { StatsOverview } from "@/lib/types";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function DashboardPage() {
+  const user = useUser();
   const [stats, setStats] = useState<StatsOverview | null>(null);
+  const [progress, setProgress] = useState<{
+    total_in_queue: number;
+    reviewed_count: number;
+    confirmed_count: number;
+    flagged_count: number;
+  } | null>(null);
+  const [flagSummary, setFlagSummary] = useState<{
+    total_flags: number;
+    by_reason: Record<string, number>;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getStats("A_Structured")
       .then(setStats)
       .catch((e) => setError(e.message));
+    getReviewProgress()
+      .then(setProgress)
+      .catch(() => {}); // non-critical
+    getFlagSummary()
+      .then(setFlagSummary)
+      .catch(() => {}); // non-critical
   }, []);
 
   if (error) {
@@ -31,6 +57,14 @@ export default function DashboardPage() {
   }
 
   const { summary } = stats;
+  const isAdmin = user?.role === "admin";
+
+  const flagChartData = flagSummary
+    ? Object.entries(flagSummary.by_reason).map(([reason, count]) => ({
+        reason,
+        count,
+      }))
+    : [];
 
   return (
     <div>
@@ -69,6 +103,77 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Review Progress card */}
+      {progress && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>
+              {isAdmin ? "Review Progress (All Reviewers)" : "Your Review Progress"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6 mb-4">
+              <div>
+                <p className="text-3xl font-bold">
+                  {progress.reviewed_count}
+                  <span className="text-lg font-normal text-raw-umber"> / {progress.total_in_queue}</span>
+                </p>
+                <p className="text-sm text-raw-umber">Applicants reviewed</p>
+              </div>
+              <div className="flex-1">
+                <div className="w-full bg-gray rounded-full h-3">
+                  <div
+                    className="h-3 rounded-full bg-legacy-green transition-all"
+                    style={{
+                      width: `${progress.total_in_queue > 0 ? (progress.reviewed_count / progress.total_in_queue) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-8 text-sm">
+              <div>
+                <p className="text-xl font-bold text-growth-green">{progress.confirmed_count}</p>
+                <p className="text-raw-umber">Confirmed</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-purple">{progress.flagged_count}</p>
+                <p className="text-raw-umber">Flagged</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Flag Summary card */}
+      {flagSummary && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>
+              {isAdmin ? "Flag Summary (All Reviewers)" : "Your Flag Summary"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {flagChartData.length === 0 ? (
+              <p className="text-sm text-raw-umber py-4">No flags submitted yet</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(150, flagChartData.length * 50)}>
+                <BarChart
+                  data={flagChartData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <XAxis type="number" />
+                  <YAxis dataKey="reason" type="category" width={180} fontSize={12} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#694FA0" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-8">
         <CardHeader><CardTitle>Tier Distribution</CardTitle></CardHeader>

@@ -153,14 +153,20 @@ def save_decision(
         logger.info("Confirmed score for applicant %d", amcas_id)
 
 
-def get_progress(db: Session, cycle_year: int, total_in_queue: int) -> dict:
-    """Get review progress counts for a cycle."""
-    rows = (
+def get_progress(
+    db: Session,
+    cycle_year: int,
+    total_in_queue: int,
+    reviewer_id: UUID | None = None,
+) -> dict:
+    """Get review progress counts for a cycle, optionally filtered by reviewer."""
+    query = (
         db.query(ReviewDecisionModel.decision, func.count())
         .filter(ReviewDecisionModel.cycle_year == cycle_year)
-        .group_by(ReviewDecisionModel.decision)
-        .all()
     )
+    if reviewer_id is not None:
+        query = query.filter(ReviewDecisionModel.reviewer_id == reviewer_id)
+    rows = query.group_by(ReviewDecisionModel.decision).all()
     counts = {decision: count for decision, count in rows}
     reviewed = sum(counts.values())
     return {
@@ -201,17 +207,23 @@ def _append_flag(amcas_id: int, reason: str, notes: str) -> None:
         json.dump(flags, f, indent=2)
 
 
-def get_flag_summary() -> dict:
-    """Get summary of flags for the current cycle."""
-    if not FLAGS_FILE.exists():
-        return {"total_flags": 0, "by_reason": {}}
+def get_flag_summary(
+    db: Session,
+    cycle_year: int,
+    reviewer_id: UUID | None = None,
+) -> dict:
+    """Get summary of flags for a cycle from PostgreSQL, optionally filtered by reviewer."""
+    query = (
+        db.query(ReviewDecisionModel.flag_reason, func.count())
+        .filter(
+            ReviewDecisionModel.cycle_year == cycle_year,
+            ReviewDecisionModel.decision == "flag",
+        )
+    )
+    if reviewer_id is not None:
+        query = query.filter(ReviewDecisionModel.reviewer_id == reviewer_id)
+    rows = query.group_by(ReviewDecisionModel.flag_reason).all()
 
-    with open(FLAGS_FILE) as f:
-        flags = json.load(f)
-
-    by_reason: dict[str, int] = {}
-    for flag in flags:
-        reason = flag.get("flag_reason", "Unknown")
-        by_reason[reason] = by_reason.get(reason, 0) + 1
-
-    return {"total_flags": len(flags), "by_reason": by_reason}
+    by_reason = {reason or "Unknown": count for reason, count in rows}
+    total = sum(by_reason.values())
+    return {"total_flags": total, "by_reason": by_reason}
