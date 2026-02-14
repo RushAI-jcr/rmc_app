@@ -23,8 +23,6 @@ import logging
 import time
 from typing import Any, Callable
 
-import pandas as pd
-
 from pipeline.rubric_prompts_v2 import (
     EXPERIENCE_PROMPTS,
     PS_DIMENSIONS,
@@ -202,6 +200,7 @@ def score_applicant(
     secondary_text: str | None,
     experience_texts: dict[str, str],
     llm_call: LLMCallFn,
+    dims_filter: set[str] | None = None,
 ) -> dict[str, Any]:
     """Score a single applicant across all dimensions.
 
@@ -211,6 +210,7 @@ def score_applicant(
         secondary_text: concatenated secondary essay text (may be None/empty)
         experience_texts: dict of domain_key -> experience text
         llm_call: LLM call function
+        dims_filter: if set, only score dimensions in this set (skips others)
 
     Returns:
         Dict with all dimension scores, reasoning, and metadata
@@ -221,17 +221,23 @@ def score_applicant(
     parse_failures = 0
     total_calls = 0
 
-    # --- Personal Statement (7 calls) ---
+    # --- Personal Statement (up to 7 calls) ---
+    ps_dims_to_score = [
+        (name, tmpl) for name, tmpl in PS_DIMENSIONS
+        if dims_filter is None or name in dims_filter
+    ]
     if ps_text and ps_text.strip():
-        ps_results = score_personal_statement(ps_text, llm_call)
-        for dim_name, result in ps_results.items():
+        for dim_name, prompt_template in ps_dims_to_score:
+            logger.info("  Scoring PS dimension: %s", dim_name)
+            result = score_dimension(dim_name, prompt_template, ps_text, llm_call)
             total_calls += 1
             if result["score"] == 0 and "PARSE_ERROR" in result.get("reasoning", ""):
                 parse_failures += 1
             all_scores[dim_name] = result
     else:
-        logger.warning("Applicant %s: no personal statement text", applicant_id)
-        for dim_name, _ in PS_DIMENSIONS:
+        if ps_dims_to_score:
+            logger.warning("Applicant %s: no personal statement text", applicant_id)
+        for dim_name, _ in ps_dims_to_score:
             all_scores[dim_name] = {
                 "dimension": dim_name,
                 "score": 0,
@@ -239,17 +245,24 @@ def score_applicant(
                 "evidence_extracted": "",
             }
 
-    # --- Secondary Essays (5 calls) ---
+    # --- Secondary Essays (up to 5 calls) ---
+    sec_dims_to_score = [
+        name for name in SECONDARY_DIMENSIONS
+        if dims_filter is None or name in dims_filter
+    ]
     if secondary_text and secondary_text.strip():
-        sec_results = score_secondary_essays(secondary_text, llm_call)
-        for dim_name, result in sec_results.items():
+        for dim_name in sec_dims_to_score:
+            logger.info("  Scoring SECONDARY dimension: %s", dim_name)
+            prompt_template = SECONDARY_PROMPTS[dim_name]
+            result = score_dimension(dim_name, prompt_template, secondary_text, llm_call)
             total_calls += 1
             if result["score"] == 0 and "PARSE_ERROR" in result.get("reasoning", ""):
                 parse_failures += 1
             all_scores[dim_name] = result
     else:
-        logger.warning("Applicant %s: no secondary essay text", applicant_id)
-        for dim_name in SECONDARY_DIMENSIONS:
+        if sec_dims_to_score:
+            logger.warning("Applicant %s: no secondary essay text", applicant_id)
+        for dim_name in sec_dims_to_score:
             all_scores[dim_name] = {
                 "dimension": dim_name,
                 "score": 0,
@@ -259,8 +272,15 @@ def score_applicant(
 
     # --- Experience Domains (up to 9 calls) ---
     if experience_texts:
-        exp_results = score_all_experiences(experience_texts, llm_call)
-        for dim_name, result in exp_results.items():
+        for domain_key, text in experience_texts.items():
+            dim_name = f"{domain_key}_depth_and_quality"
+            if dims_filter is not None and dim_name not in dims_filter:
+                continue
+            if domain_key not in EXPERIENCE_PROMPTS:
+                logger.warning("Unknown experience domain: %s, skipping", domain_key)
+                continue
+            logger.info("  Scoring EXP dimension: %s", dim_name)
+            result = score_experience_domain(domain_key, text, llm_call)
             total_calls += 1
             if result["score"] == 0 and "PARSE_ERROR" in result.get("reasoning", ""):
                 parse_failures += 1
@@ -291,6 +311,7 @@ def score_applicant(
 def score_batch(
     applicants: list[dict[str, Any]],
     llm_call: LLMCallFn,
+    dims_filter: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Score a batch of applicants sequentially.
 
@@ -301,6 +322,7 @@ def score_batch(
             - secondary_text (optional)
             - experience_texts: dict of domain_key -> text (optional)
         llm_call: LLM call function
+        dims_filter: if set, only score dimensions in this set
 
     Returns:
         List of score result dicts (one per applicant)
@@ -322,6 +344,7 @@ def score_batch(
             secondary_text=app.get("secondary_text"),
             experience_texts=app.get("experience_texts", {}),
             llm_call=llm_call,
+            dims_filter=dims_filter,
         )
         results.append(result)
         total_parse_failures += result["metadata"]["parse_failures"]

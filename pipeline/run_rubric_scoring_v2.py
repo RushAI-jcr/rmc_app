@@ -42,6 +42,7 @@ import pandas as pd
 
 from pipeline.config import (
     CACHE_DIR,
+    CURATED_RUBRIC_DIMS,
     ID_COLUMN,
 )
 from pipeline.data_preparation import (
@@ -194,6 +195,7 @@ def build_applicant_records(
     years: list[int],
     n: int | None = None,
     amcas_id: int | None = None,
+    id_file: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Load applicant data and build records for v2 scoring.
 
@@ -213,6 +215,14 @@ def build_applicant_records(
             logger.error("AMCAS ID %d not found in data", amcas_id)
             sys.exit(1)
         applicant_ids = [amcas_id]
+    elif id_file:
+        with open(id_file) as f:
+            target_ids = set(json.load(f))
+        applicant_ids = sorted(aid for aid in all_ids if aid in target_ids)
+        missing = target_ids - set(applicant_ids)
+        if missing:
+            logger.warning("%d IDs from file not found in data: %s", len(missing), list(missing)[:5])
+        logger.info("Filtered to %d applicants from ID file", len(applicant_ids))
     else:
         applicant_ids = sorted(all_ids)
         if n:
@@ -264,21 +274,38 @@ def run_scoring(
     years: list[int] | None = None,
     amcas_id: int | None = None,
     resume: bool = False,
+    id_file: Path | None = None,
+    dims: str = "all",
 ) -> None:
     """Run v2 atomic rubric scoring."""
     years = years or [2022, 2023, 2024]
 
+    # Resolve dimension filter
+    dims_filter: set[str] | None = None
+    if dims == "curated":
+        dims_filter = set(CURATED_RUBRIC_DIMS)
+        logger.info("Scoring curated %d dimensions: %s", len(dims_filter), sorted(dims_filter))
+    elif dims != "all":
+        logger.error("Unknown --dims value: %s (use 'all' or 'curated')", dims)
+        sys.exit(1)
+
     if dry_run:
         logger.info("=== DRY RUN: printing prompt structure ===")
-        print(f"\nSystem prompt ({len(SYSTEM_PROMPT)} chars):")
-        print(SYSTEM_PROMPT[:200] + "...")
-        print(f"\n{len(PS_DIMENSIONS)} PS dimensions:")
-        for name, tmpl in PS_DIMENSIONS:
-            print(f"  {name}: {len(tmpl)} chars")
-        print(f"\n{len(EXPERIENCE_PROMPTS)} experience domains:")
-        for name, tmpl in EXPERIENCE_PROMPTS.items():
-            print(f"  {name}: {len(tmpl)} chars")
-        print(f"\nTotal dimensions per applicant: {len(PS_DIMENSIONS) + len(EXPERIENCE_PROMPTS)}")
+        print(f"\nDimension mode: {dims}")
+        if dims_filter:
+            print(f"Scoring {len(dims_filter)} curated dimensions:")
+            for d in sorted(dims_filter):
+                print(f"  - {d}")
+        else:
+            print(f"\nSystem prompt ({len(SYSTEM_PROMPT)} chars):")
+            print(SYSTEM_PROMPT[:200] + "...")
+            print(f"\n{len(PS_DIMENSIONS)} PS dimensions:")
+            for name, tmpl in PS_DIMENSIONS:
+                print(f"  {name}: {len(tmpl)} chars")
+            print(f"\n{len(EXPERIENCE_PROMPTS)} experience domains:")
+            for name, tmpl in EXPERIENCE_PROMPTS.items():
+                print(f"  {name}: {len(tmpl)} chars")
+            print(f"\nTotal dimensions per applicant: {len(PS_DIMENSIONS) + len(EXPERIENCE_PROMPTS)}")
         print(f"\nScale: 1-4 (no neutral midpoint)")
         print("Dry run complete.")
         return
@@ -286,7 +313,7 @@ def run_scoring(
     from pipeline.rubric_scorer_v2 import score_batch, MIN_SCORABLE_TEXT
 
     # Load applicant data
-    applicants = build_applicant_records(years, n=n, amcas_id=amcas_id)
+    applicants = build_applicant_records(years, n=n, amcas_id=amcas_id, id_file=id_file)
 
     # Log input quality summary
     for rec in applicants:
@@ -326,14 +353,19 @@ def run_scoring(
     llm_call = get_llm_call()
 
     # Score
-    results = score_batch(applicants, llm_call)
+    results = score_batch(applicants, llm_call, dims_filter=dims_filter)
 
     # Save results
     out_dir = CACHE_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "rubric_scores_v2.json"
 
+    # Merge with existing results (for --resume and --id-file workflows)
     output: dict[str, Any] = {}
+    if out_path.exists():
+        with open(out_path) as f:
+            output = json.load(f)
+
     for result in results:
         aid = str(result["applicant_id"])
         output[aid] = {
@@ -420,6 +452,18 @@ def main():
         help="Skip already-scored applicants and continue where you left off",
     )
     parser.add_argument(
+        "--id-file",
+        type=Path,
+        default=None,
+        help="JSON file with list of AMCAS IDs to score (e.g., pilot_batch2_ids.json)",
+    )
+    parser.add_argument(
+        "--dims",
+        choices=["all", "curated"],
+        default="all",
+        help="Dimension set to score: 'all' (21 dims) or 'curated' (7 dims, 67%% cost reduction)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print prompt structure without calling API",
@@ -432,6 +476,8 @@ def main():
         years=args.years,
         amcas_id=args.amcas_id,
         resume=args.resume,
+        id_file=args.id_file,
+        dims=args.dims,
     )
 
 

@@ -29,8 +29,11 @@ class DataStore:
         self.master_data: pd.DataFrame = pd.DataFrame()
         self.model_results: dict[str, dict] = {}
         self.rubric_scores: dict = {}
+        self.rubric_details: dict = {}
         self.rubric_features: pd.DataFrame = pd.DataFrame()
+        self.experiences_data: pd.DataFrame = pd.DataFrame()
         self._prediction_cache: dict[str, list[dict]] = {}
+        self._test_predictions_cache: dict[str, dict | None] = {}
 
     def get_predictions(self, config_name: str) -> list[dict]:
         """Return cached predictions, computing on first call per config."""
@@ -42,11 +45,13 @@ class DataStore:
     def invalidate_prediction_cache(self) -> None:
         """Clear the prediction cache (call after decisions change or pipeline re-runs)."""
         self._prediction_cache.clear()
+        self._test_predictions_cache.clear()
 
     def load_all(self) -> None:
         self._load_master_data()
         self._load_models()
         self._load_rubric()
+        self._load_experiences()
 
     def _load_master_data(self) -> None:
         dfs = []
@@ -148,13 +153,38 @@ class DataStore:
                 logger.warning("Model not found: %s", path)
 
     def _load_rubric(self) -> None:
-        rubric_path = CACHE_DIR / "rubric_scores.json"
+        # Prefer v2 format; fall back to v1 for backward compat
+        rubric_path = CACHE_DIR / "rubric_scores_v2.json"
+        if not rubric_path.exists():
+            rubric_path = CACHE_DIR / "rubric_scores.json"
+
         if rubric_path.exists():
             with open(rubric_path) as f:
-                self.rubric_scores = json.load(f)
-            logger.info("Loaded %d rubric scores", len(self.rubric_scores))
+                raw = json.load(f)
+
+            # Detect v2 nested format: {amcas_id: {scores: {...}, details: {...}}}
+            sample = next(iter(raw.values()), None) if raw else None
+            if isinstance(sample, dict) and "scores" in sample:
+                # v2 format
+                for amcas_id, record in raw.items():
+                    self.rubric_scores[amcas_id] = record.get("scores", {})
+                    self.rubric_details[amcas_id] = record.get("details", {})
+                logger.info("Loaded %d rubric scores (v2 format with details)", len(self.rubric_scores))
+            else:
+                # v1 flat format: {amcas_id: {dim: score}}
+                self.rubric_scores = raw
+                logger.info("Loaded %d rubric scores (v1 format)", len(self.rubric_scores))
 
         rubric_feat_path = PROCESSED_DIR / "rubric_features.csv"
         if rubric_feat_path.exists():
             self.rubric_features = pd.read_csv(rubric_feat_path)
             logger.info("Loaded rubric features: %d rows", len(self.rubric_features))
+
+    def _load_experiences(self) -> None:
+        """Load raw experiences table for per-applicant lookups."""
+        from pipeline.data_preparation import load_experiences
+        try:
+            self.experiences_data = load_experiences()
+            logger.info("Loaded %d experience records", len(self.experiences_data))
+        except (FileNotFoundError, KeyError, pd.errors.EmptyDataError):
+            logger.warning("Could not load experiences data", exc_info=True)

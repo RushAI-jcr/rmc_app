@@ -259,6 +259,25 @@ SECONDARY_DIMS = [
 
 ALL_RUBRIC_DIMS = PS_DIMS + EXPERIENCE_QUALITY_DIMS + SECONDARY_DIMS
 
+# Curated 7-dimension rubric: domain expertise + statistical signal
+# Selected by admissions department priorities (community service, patient care,
+# mission alignment, resilience/grit) combined with top residual-correlated dims
+# from n=101 pilot test (leadership, motivation).
+# Performance: R2=+0.050, MAE improvement +0.31 vs Plan A (n=101 LOO-CV stacking)
+# Cost: 7 API calls per applicant vs 21 (67% reduction)
+CURATED_RUBRIC_DIMS = [
+    # PS dimensions (3 calls)
+    "mission_alignment_service_orientation",  # Admissions dept priority
+    "adversity_resilience",                   # Resilience/grit + stat significant (p=0.010)
+    "motivation_depth",                       # Stat top-5 residual correlation
+    # Experience dimensions (3 calls)
+    "community_service_depth_and_quality",    # Admissions dept priority
+    "direct_patient_care_depth_and_quality",  # Admissions dept priority + stat top-5
+    "leadership_depth_and_quality",           # Stat #1 residual correlation (p=0.023)
+    # Secondary dimensions (1 call)
+    "adversity_response_quality",             # Stat #2 residual correlation (p=0.006)
+]
+
 # -- Model training config --------------------------------------------------
 TRAIN_YEARS = [2022, 2023]
 TEST_YEAR = 2024

@@ -274,6 +274,142 @@ def _aggregate_gpa_trend(gpa_trend: pd.DataFrame) -> pd.DataFrame:
     return gpa_trend[[ID_COLUMN, "GPA_Trend_Ordinal"]].drop_duplicates(subset=ID_COLUMN)
 
 
+def _aggregate_siblings(siblings: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate to one row per applicant: count of siblings."""
+    if siblings.empty:
+        return pd.DataFrame(columns=[ID_COLUMN, "Num_Siblings"])
+    agg = (
+        siblings.groupby(ID_COLUMN)
+        .size()
+        .reset_index(name="Num_Siblings")
+    )
+    return agg
+
+
+def _aggregate_academic_records(academic_records: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate to one row per applicant: course count, total credits, distinct schools."""
+    if academic_records.empty:
+        return pd.DataFrame(columns=[ID_COLUMN, "Num_Courses", "Total_Credit_Hours", "Num_Schools_Academic"])
+
+    academic_records = academic_records.copy()
+    agg_dict: dict = {}
+
+    # Count courses
+    agg_dict["Num_Courses"] = (ID_COLUMN, "count")
+
+    # Sum credit hours if column exists
+    credit_col = None
+    for candidate in ["Credit_Hours", "Credit_Hrs", "Credits"]:
+        if candidate in academic_records.columns:
+            credit_col = candidate
+            break
+    if credit_col:
+        academic_records[credit_col] = pd.to_numeric(academic_records[credit_col], errors="coerce").fillna(0)
+        agg_dict["Total_Credit_Hours"] = (credit_col, "sum")
+
+    # Distinct schools
+    school_col = None
+    for candidate in ["School_Name", "Institution_Name", "School"]:
+        if candidate in academic_records.columns:
+            school_col = candidate
+            break
+    if school_col:
+        agg_dict["Num_Schools_Academic"] = (school_col, "nunique")
+
+    agg = academic_records.groupby(ID_COLUMN).agg(**agg_dict).reset_index()
+
+    # Fill missing columns with defaults
+    for col, default in [("Num_Courses", 0), ("Total_Credit_Hours", 0), ("Num_Schools_Academic", 0)]:
+        if col not in agg.columns:
+            agg[col] = default
+
+    return agg
+
+
+def _aggregate_schools(schools: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate to one row per applicant: distinct schools, primary undergrad, major, highest degree."""
+    if schools.empty:
+        return pd.DataFrame(columns=[ID_COLUMN, "Num_Schools", "Primary_Undergrad_School", "Primary_Major", "Highest_Degree"])
+
+    result_rows = []
+    for amcas_id, group in schools.groupby(ID_COLUMN):
+        row: dict = {ID_COLUMN: amcas_id}
+
+        # Distinct school count
+        school_col = None
+        for candidate in ["School_Name", "Institution_Name", "School"]:
+            if candidate in group.columns:
+                school_col = candidate
+                break
+        row["Num_Schools"] = group[school_col].nunique() if school_col else len(group)
+
+        # Primary undergrad school (look for type indicators)
+        school_name = None
+        major = None
+        type_col = None
+        for candidate in ["School_Type", "Type", "Degree_Type"]:
+            if candidate in group.columns:
+                type_col = candidate
+                break
+
+        if type_col and school_col:
+            undergrad = group[group[type_col].astype(str).str.contains("undergrad|baccalaureate|bachelor", case=False, na=False)]
+            if not undergrad.empty:
+                school_name = undergrad.iloc[0][school_col]
+        elif school_col:
+            school_name = group.iloc[0][school_col]
+
+        row["Primary_Undergrad_School"] = school_name if pd.notna(school_name) else None
+
+        # Primary major
+        major_col = None
+        for candidate in ["Major_Long_Desc", "Major", "Major_Desc"]:
+            if candidate in group.columns:
+                major_col = candidate
+                break
+        if major_col:
+            major = group.iloc[0][major_col]
+        row["Primary_Major"] = major if pd.notna(major) else None
+
+        # Highest degree
+        degree_col = None
+        for candidate in ["Degree_Long_Desc", "Degree", "Degree_Desc"]:
+            if candidate in group.columns:
+                degree_col = candidate
+                break
+        row["Highest_Degree"] = group.iloc[0][degree_col] if degree_col and pd.notna(group.iloc[0].get(degree_col)) else None
+
+        result_rows.append(row)
+
+    return pd.DataFrame(result_rows)
+
+
+def _aggregate_military(military: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate to one row per applicant: first row's service and status descriptions."""
+    if military.empty:
+        return pd.DataFrame(columns=[ID_COLUMN, "Military_Service_Desc", "Military_Status_Desc"])
+
+    first_rows = military.drop_duplicates(subset=ID_COLUMN, keep="first")
+
+    result = first_rows[[ID_COLUMN]].copy()
+
+    svc_col = None
+    for candidate in ["Military_Service_Desc", "Service_Desc", "Branch"]:
+        if candidate in first_rows.columns:
+            svc_col = candidate
+            break
+    result["Military_Service_Desc"] = first_rows[svc_col].values if svc_col else None
+
+    status_col = None
+    for candidate in ["Military_Status_Desc", "Status_Desc", "Military_Service_Status"]:
+        if candidate in first_rows.columns:
+            status_col = candidate
+            break
+    result["Military_Status_Desc"] = first_rows[status_col].values if status_col else None
+
+    return result
+
+
 def _derive_experience_flags(experiences: pd.DataFrame) -> pd.DataFrame:
     """Derive 9 binary experience flags per applicant from experience records."""
     if experiences.empty:
@@ -481,6 +617,10 @@ def prepare_dataset(
     gpa_trend = _load_table("gpa_trend", years, **kw)
     languages = _load_table("language", years, **kw)
     parents = _load_table("parents", years, **kw)
+    siblings = _load_table("siblings", years, **kw)
+    academic_records = _load_table("academic_records", years, **kw)
+    schools = _load_table("schools", years, **kw)
+    military = _load_table("military", years, **kw)
     cb("ingestion", 10)
 
     # --- Step 2: Aggregate multi-row tables ---
@@ -488,12 +628,16 @@ def prepare_dataset(
     parent_agg = _aggregate_parents(parents)
     gpa_agg = _aggregate_gpa_trend(gpa_trend)
     exp_flags = _derive_experience_flags(experiences)
+    siblings_agg = _aggregate_siblings(siblings)
+    academic_agg = _aggregate_academic_records(academic_records)
+    schools_agg = _aggregate_schools(schools)
+    military_agg = _aggregate_military(military)
     cb("aggregation", 20)
 
     # --- Step 3: Join everything to applicants ---
     df = applicants.copy()
 
-    for aux_df in [lang_agg, parent_agg, gpa_agg, exp_flags]:
+    for aux_df in [lang_agg, parent_agg, gpa_agg, exp_flags, siblings_agg, academic_agg, schools_agg, military_agg]:
         if not aux_df.empty and ID_COLUMN in aux_df.columns:
             df = df.merge(aux_df, on=ID_COLUMN, how="left", suffixes=("", "_dup"))
             dup_cols = [c for c in df.columns if c.endswith("_dup")]

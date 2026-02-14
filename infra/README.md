@@ -209,6 +209,8 @@ Rollback to a previous deployment:
 ./rollback.sh a1b2c3d
 ```
 
+**Note:** Rollback only reverts container images (API, frontend, Celery). Database migrations are not automatically reverted; if a migration must be undone, run Alembic downgrade manually.
+
 ## Local Development
 
 ### Setup Local Environment
@@ -312,20 +314,22 @@ az containerapp revision restart --name rmc-api --resource-group rmc-triage-rg
 
 ### Manual Scaling
 
+Default is min 1 / max 2 for &lt;50 users/day. Increase for higher load:
+
 ```bash
-# Scale API
+# Scale API (default: min 1, max 2)
 az containerapp update \
   --name rmc-api \
   --resource-group rmc-triage-rg \
-  --min-replicas 2 \
-  --max-replicas 10
+  --min-replicas 1 \
+  --max-replicas 2
 
-# Scale Celery workers
+# Scale Celery workers (default: min 1, max 2)
 az containerapp update \
   --name rmc-celery-worker \
   --resource-group rmc-triage-rg \
-  --min-replicas 2 \
-  --max-replicas 5
+  --min-replicas 1 \
+  --max-replicas 2
 ```
 
 ### Database Scaling
@@ -419,15 +423,17 @@ az storage account update \
 
 ### Estimated Monthly Costs (US Central)
 
+Default deploy is tuned for **&lt;50 users/day** (min 1 replica, max 2 for API, frontend, Celery).
+
 | Resource | SKU/Size | Est. Cost |
 |----------|----------|-----------|
-| Container Apps | Consumption (3 apps) | $20-50 |
+| Container Apps | Consumption (3 apps, 1–2 replicas each) | ~$15-35 |
 | PostgreSQL | Standard_B1ms, 32GB | $25-30 |
 | Redis | Basic C0 | $16 |
 | Storage | Standard LRS, 100GB | $2-5 |
 | Container Registry | Basic | $5 |
 | Key Vault | Standard | $0.03/10k ops |
-| **Total** | | **~$70-110/month** |
+| **Total** | | **~$50-75/month** |
 
 ### Cost Reduction Tips
 
@@ -441,6 +447,11 @@ az storage account update \
 3. **Enable auto-pause for development databases**
 
 4. **Use lifecycle policies for blob storage** (already configured)
+
+### Secrets and monitoring
+
+- **Secret rotation:** Rotate DB password, JWT secret, and Redis key periodically. Update the value in Key Vault (`az keyvault secret set ...`), then restart Container Apps so they pick up the new secret: `az containerapp revision restart --name rmc-api --resource-group rmc-triage-rg` (and similarly for rmc-frontend, rmc-celery-worker).
+- **Container Apps logs and alerts:** Use Azure Portal (Container App → Log stream, Monitoring) or CLI: `az containerapp logs show --name rmc-api --resource-group rmc-triage-rg --follow`. For alerts, configure Azure Monitor for the Container Apps environment (e.g. CPU/memory or failure rate).
 
 ## Troubleshooting
 

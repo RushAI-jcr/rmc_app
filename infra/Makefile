@@ -156,7 +156,7 @@ endif
 
 ##@ Scaling
 
-scale-api: ## Scale API (run: make scale-api MIN=2 MAX=10)
+scale-api: ## Scale API (run: make scale-api MIN=1 MAX=2)
 ifdef MIN
 ifdef MAX
 	@echo "$(BLUE)Scaling API to $(MIN)-$(MAX) replicas...$(NC)"
@@ -164,14 +164,14 @@ ifdef MAX
 	@echo "$(GREEN)✓ API scaled$(NC)"
 else
 	@echo "$(RED)ERROR: Please specify MIN and MAX$(NC)"
-	@echo "Example: make scale-api MIN=2 MAX=10"
+	@echo "Example: make scale-api MIN=1 MAX=2"
 endif
 else
 	@echo "$(RED)ERROR: Please specify MIN and MAX$(NC)"
-	@echo "Example: make scale-api MIN=2 MAX=10"
+	@echo "Example: make scale-api MIN=1 MAX=2"
 endif
 
-scale-celery: ## Scale Celery workers (run: make scale-celery MIN=2 MAX=5)
+scale-celery: ## Scale Celery workers (run: make scale-celery MIN=1 MAX=2)
 ifdef MIN
 ifdef MAX
 	@echo "$(BLUE)Scaling Celery to $(MIN)-$(MAX) replicas...$(NC)"
@@ -179,11 +179,11 @@ ifdef MAX
 	@echo "$(GREEN)✓ Celery scaled$(NC)"
 else
 	@echo "$(RED)ERROR: Please specify MIN and MAX$(NC)"
-	@echo "Example: make scale-celery MIN=2 MAX=5"
+	@echo "Example: make scale-celery MIN=1 MAX=2"
 endif
 else
 	@echo "$(RED)ERROR: Please specify MIN and MAX$(NC)"
-	@echo "Example: make scale-celery MIN=2 MAX=5"
+	@echo "Example: make scale-celery MIN=1 MAX=2"
 endif
 
 ##@ Cleanup

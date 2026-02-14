@@ -154,8 +154,8 @@ make secrets-update SECRET=JWT-SECRET VALUE=newsecret  # Update secret
 
 ### Scaling
 ```bash
-make scale-api MIN=2 MAX=10        # Scale API
-make scale-celery MIN=2 MAX=5      # Scale Celery workers
+make scale-api MIN=1 MAX=2         # Scale API (default for <50 users/day)
+make scale-celery MIN=1 MAX=2      # Scale Celery workers
 ```
 
 ### Utility
@@ -205,20 +205,22 @@ cd infra
 
 ### Scale Resources
 
+Default is min 1 / max 2 for &lt;50 users/day. Example:
+
 ```bash
-# Scale API
+# Scale API (default: min 1, max 2)
 az containerapp update \
   --name rmc-api \
   --resource-group rmc-triage-rg \
-  --min-replicas 2 \
-  --max-replicas 10
+  --min-replicas 1 \
+  --max-replicas 2
 
-# Scale Celery workers
+# Scale Celery workers (default: min 1, max 2)
 az containerapp update \
   --name rmc-celery-worker \
   --resource-group rmc-triage-rg \
-  --min-replicas 2 \
-  --max-replicas 5
+  --min-replicas 1 \
+  --max-replicas 2
 ```
 
 ### Access Secrets
@@ -265,13 +267,14 @@ az containerapp revision restart --name rmc-api --resource-group rmc-triage-rg
 
 ## Cost Estimate
 
-**~$70-110/month** for production environment:
-- Container Apps: $20-50
-- PostgreSQL: $25-30
+Default deploy is tuned for **&lt;50 users/day** (min 1 replica for API, frontend, and Celery for no cold start; max 2 each). **~$50–75/month** for production:
+
+- Container Apps: ~$15–35 (API 0.75 CPU / 1.5 Gi, Frontend 0.5 / 1 Gi, Celery 0.5 / 1 Gi; 1–2 replicas each)
+- PostgreSQL: $25–30
 - Redis: $16
-- Storage: $2-5
+- Storage: $2–5
 - Container Registry: $5
-- Key Vault: <$1
+- Key Vault: &lt;$1
 
 ## Troubleshooting
 

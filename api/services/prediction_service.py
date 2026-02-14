@@ -37,7 +37,10 @@ def get_feature_columns(config_name: str, store: DataStore) -> list[str]:
 
 
 def get_test_predictions(config_name: str, store: DataStore) -> dict | None:
-    """Compute predictions for the 2024 test set."""
+    """Compute predictions for the 2024 test set (cached per config)."""
+    if config_name in store._test_predictions_cache:
+        return store._test_predictions_cache[config_name]
+
     results = store.model_results.get(config_name)
     if results is None:
         return None
@@ -87,7 +90,7 @@ def get_test_predictions(config_name: str, store: DataStore) -> dict | None:
     )
     reg_pred = np.clip(results[reg_key]["model"].predict(X_scaled), 0, 25)
 
-    return {
+    result = {
         "clf_pred": clf_pred,
         "clf_proba": clf_proba,
         "reg_pred": reg_pred,
@@ -101,6 +104,8 @@ def get_test_predictions(config_name: str, store: DataStore) -> dict | None:
         "reg_key": reg_key,
         "n_classes": clf_proba.shape[1] if clf_proba is not None else 4,
     }
+    store._test_predictions_cache[config_name] = result
+    return result
 
 
 def build_prediction_table(config_name: str, store: DataStore) -> list[dict]:
@@ -168,8 +173,8 @@ def compute_shap_for_applicant(
 
     try:
         explainer = shap.TreeExplainer(model)
-        sv = explainer(preds["X_scaled"])
-        values = sv.values[idx]
+        sv = explainer(preds["X_scaled"][idx:idx+1])
+        values = sv.values[0]
     except Exception:
         background = shap.sample(preds["X_scaled"], min(100, len(preds["X_scaled"])))
         explainer = shap.Explainer(model.predict, background)

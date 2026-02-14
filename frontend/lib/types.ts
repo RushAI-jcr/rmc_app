@@ -18,10 +18,16 @@ export interface ShapDriver {
   direction: "positive" | "negative";
 }
 
+export interface RubricDimensionDetail {
+  evidence_extracted: string;
+  reasoning: string;
+}
+
 export interface RubricDimension {
   name: string;
   score: number;
   max_score: number;
+  detail: RubricDimensionDetail | null;
 }
 
 export interface RubricGroup {
@@ -40,6 +46,71 @@ export interface FlagInfo {
   flagged_at: string | null;
 }
 
+export interface ApplicantProfile {
+  age: number | null;
+  gender: string | null;
+  citizenship: string | null;
+  ses_value: number | null;
+  first_generation: boolean;
+  disadvantaged: boolean;
+  pell_grant: boolean;
+  fee_assistance: boolean;
+  military_service: boolean;
+  childhood_med_underserved: boolean;
+  paid_employment_bf_18: boolean;
+  contribution_to_family: boolean;
+  employed_undergrad: boolean;
+  num_dependents: number;
+  num_languages: number;
+  parent_max_education_ordinal: number | null;
+  primary_undergrad_school: string | null;
+  primary_major: string | null;
+  highest_degree: string | null;
+  num_schools: number | null;
+  num_courses: number | null;
+  total_credit_hours: number | null;
+  military_service_desc: string | null;
+  military_status_desc: string | null;
+  num_siblings: number | null;
+}
+
+export interface ExperienceHoursSummary {
+  total: number;
+  research: number;
+  volunteer_med: number;
+  volunteer_non_med: number;
+  employ_med: number;
+  shadowing: number;
+  community_service: number;
+  healthcare: number;
+  total_volunteer: number;
+  clinical_total: number;
+}
+
+export interface ExperienceItem {
+  exp_type: string | null;
+  exp_name: string | null;
+  hours: number | null;
+  description: string | null;
+}
+
+export interface ExperienceFlags {
+  has_direct_patient_care: boolean;
+  has_volunteering: boolean;
+  has_community_service: boolean;
+  has_shadowing: boolean;
+  has_clinical_experience: boolean;
+  has_leadership: boolean;
+  has_research: boolean;
+  has_military_service: boolean;
+  has_honors: boolean;
+}
+
+export interface EssaySection {
+  prompt_name: string;
+  text: string;
+}
+
 export interface ApplicantDetail {
   amcas_id: number;
   tier: number;
@@ -56,6 +127,12 @@ export interface ApplicantDetail {
   rubric_scorecard: RubricScorecard | null;
   app_year: number | null;
   flag: FlagInfo | null;
+  profile: ApplicantProfile | null;
+  experience_hours: ExperienceHoursSummary | null;
+  experience_items: ExperienceItem[];
+  experience_flags: ExperienceFlags | null;
+  personal_statement: string | null;
+  secondary_essays: EssaySection[];
 }
 
 export interface TriageSummary {

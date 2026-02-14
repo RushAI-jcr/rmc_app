@@ -75,7 +75,7 @@ else
     --tier Burstable \
     --storage-size 32 \
     --version 16 \
-    --public-access 0.0.0.0-255.255.255.255 \
+    --public-access 0.0.0.0-0.0.0.0 \
     --backup-retention 35 \
     --yes
 
@@ -227,7 +227,8 @@ else
     --resource-group "$RG" \
     --name "$KV_NAME" \
     --location "$LOCATION" \
-    --enable-rbac-authorization false
+    --enable-rbac-authorization false \
+    --enable-purge-protection true
 
   echo "✓ Key Vault created"
 fi

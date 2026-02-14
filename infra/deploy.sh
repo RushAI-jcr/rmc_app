@@ -47,6 +47,20 @@ if ! az keyvault show --name "$KV_NAME" --resource-group "$RG" &>/dev/null; then
   exit 1
 fi
 
+# Check if ACR exists
+if ! az acr show --name "$ACR_NAME" --resource-group "$RG" &>/dev/null; then
+  echo "ERROR: Container Registry '$ACR_NAME' not found"
+  echo "Run ./provision.sh first to create infrastructure"
+  exit 1
+fi
+
+# Check if Container Apps environment exists
+if ! az containerapp env show --name "$ENV_NAME" --resource-group "$RG" &>/dev/null; then
+  echo "ERROR: Container Apps environment '$ENV_NAME' not found"
+  echo "Run ./provision.sh first to create infrastructure"
+  exit 1
+fi
+
 echo "✓ Pre-flight checks passed"
 
 # ============================================================================
@@ -155,6 +169,10 @@ if az containerapp show --name rmc-celery-worker --resource-group "$RG" &>/dev/n
     --name rmc-celery-worker \
     --resource-group "$RG" \
     --image "$ACR_NAME.azurecr.io/rmc-api:$IMAGE_TAG" \
+    --cpu 0.5 \
+    --memory 1.0Gi \
+    --min-replicas 1 \
+    --max-replicas 2 \
     --set-env-vars \
       "DATABASE_URL=secretref:database-url" \
       "REDIS_URL=secretref:redis-url" \
@@ -167,10 +185,10 @@ else
     --environment "$ENV_NAME" \
     --image "$ACR_NAME.azurecr.io/rmc-api:$IMAGE_TAG" \
     --registry-server "$ACR_NAME.azurecr.io" \
-    --cpu 1.0 \
-    --memory 2.0Gi \
+    --cpu 0.5 \
+    --memory 1.0Gi \
     --min-replicas 1 \
-    --max-replicas 3 \
+    --max-replicas 2 \
     --secrets \
       "database-url=keyvaultref:$DATABASE_URL_REF,identityref:system" \
       "redis-url=keyvaultref:$REDIS_URL_REF,identityref:system" \
@@ -218,6 +236,9 @@ echo "✓ Celery worker deployed"
 # ============================================================================
 # 5. DEPLOY API
 # ============================================================================
+# Optimized for <50 users/day: 0.75 CPU, 1.5 Gi, min 1 / max 2 replicas (no cold start).
+# Health: Container Apps default TCP probes on target port 8000; optional HTTP probe
+# on /health can be set in Azure Portal or via YAML for finer control.
 echo ""
 echo "=== 5. Deploying API ==="
 
@@ -228,6 +249,10 @@ if az containerapp show --name rmc-api --resource-group "$RG" &>/dev/null; then
     --name rmc-api \
     --resource-group "$RG" \
     --image "$ACR_NAME.azurecr.io/rmc-api:$IMAGE_TAG" \
+    --cpu 0.75 \
+    --memory 1.5Gi \
+    --min-replicas 1 \
+    --max-replicas 2 \
     --set-env-vars \
       "DATABASE_URL=secretref:database-url" \
       "REDIS_URL=secretref:redis-url" \
@@ -243,10 +268,10 @@ else
     --target-port 8000 \
     --ingress external \
     --registry-server "$ACR_NAME.azurecr.io" \
-    --cpu 1.0 \
-    --memory 2.0Gi \
+    --cpu 0.75 \
+    --memory 1.5Gi \
     --min-replicas 1 \
-    --max-replicas 5 \
+    --max-replicas 2 \
     --secrets \
       "database-url=keyvaultref:$DATABASE_URL_REF,identityref:system" \
       "redis-url=keyvaultref:$REDIS_URL_REF,identityref:system" \
@@ -310,6 +335,8 @@ if az containerapp show --name rmc-frontend --resource-group "$RG" &>/dev/null; 
     --name rmc-frontend \
     --resource-group "$RG" \
     --image "$ACR_NAME.azurecr.io/rmc-frontend:$IMAGE_TAG" \
+    --min-replicas 1 \
+    --max-replicas 2 \
     --set-env-vars "NEXT_PUBLIC_API_URL=https://$API_FQDN"
 else
   echo "Creating frontend..."
@@ -324,7 +351,7 @@ else
     --cpu 0.5 \
     --memory 1.0Gi \
     --min-replicas 1 \
-    --max-replicas 3 \
+    --max-replicas 2 \
     --env-vars "NEXT_PUBLIC_API_URL=https://$API_FQDN"
 fi
 
