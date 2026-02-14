@@ -84,6 +84,11 @@ The infrastructure was audited for security, compliance, configuration, and oper
 - 2.1 Document IaC approach; optionally add Bicep/Terraform later.
 - 2.4 Document or add deployment validation step (e.g. run in dev first).
 
+### Existing deployments (manual fixes if provisioned before this audit)
+
+- **PostgreSQL:** If the server was created with `--public-access 0.0.0.0-255.255.255.255`, restrict it by removing the allow-all rule and adding an Azure-services-only rule, or run a one-off: `az postgres flexible-server firewall-rule create --resource-group rmc-triage-rg --name rmc-triage-postgres --rule-name AllowAzureServices --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0` and remove any 0.0.0.0–255.255.255.255 rule if present.
+- **Key Vault:** Purge protection can only be set at create time. Existing vaults cannot be updated to enable it; they would need to be recreated (migrate secrets first).
+
 ### Verified
 
 - 2.7 API port 8000 and frontend port 3000 confirmed in Dockerfiles and deploy.sh.
