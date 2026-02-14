@@ -116,6 +116,9 @@ export default function IngestPage() {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6">Upload AMCAS Data</h2>
+      <p className="text-sm text-raw-umber mb-6">
+        Upload your AMCAS export files. The AI will analyze applications and surface mission-aligned candidates for your review.
+      </p>
 
       {hasActiveRun && (
         <div className="mb-6 rounded-lg border border-purple/30 bg-purple/5 p-4">

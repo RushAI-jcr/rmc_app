@@ -39,9 +39,9 @@ export default function ReviewPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Review Queue</h2>
+          <h2 className="text-2xl font-bold">Guided Review</h2>
           <p className="text-sm text-raw-umber mt-1">
-            Showing Tier 2 (Strong Candidate) and Tier 3 (Priority Interview) applicants only.
+            AI recommends these candidates for interview consideration. Your expert judgment confirms or adjusts each recommendation.
           </p>
         </div>
         <span className="text-sm text-raw-umber">

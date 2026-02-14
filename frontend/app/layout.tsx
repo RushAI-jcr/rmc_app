@@ -3,8 +3,8 @@ import "./globals.css";
 import { AuthGuard } from "@/components/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Rush Medical College — Admissions Triage",
-  description: "Decision-support tool for Rush Medical College admissions review",
+  title: "RMC Admissions Assistant",
+  description: "AI-powered assistant helping Rush Medical College admissions focus on mission-aligned candidates",
 };
 
 export default function RootLayout({

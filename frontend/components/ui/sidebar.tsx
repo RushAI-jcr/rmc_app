@@ -44,8 +44,8 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-white/10 bg-legacy-green">
       <div className="p-6">
-        <h1 className="text-lg font-bold text-white">RMC Triage</h1>
-        <p className="text-xs text-wash-green">Admissions Decision Support</p>
+        <h1 className="text-lg font-bold text-white">RMC Admissions Assistant</h1>
+        <p className="text-xs text-wash-green">AI-Powered Review Support</p>
       </div>
       <nav className="flex-1 px-3">
         {navItems.map((item) => {

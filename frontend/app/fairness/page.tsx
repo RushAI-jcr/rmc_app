@@ -19,10 +19,20 @@ export default function FairnessPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <p className="text-rose">{error}</p>;
-  if (!report.length) return <p className="text-wash-gray">Loading fairness report...</p>;
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-2">Fairness Audit</h2>
+      <p className="text-sm text-raw-umber mb-6">
+        The AI does not use gender, age, race, or citizenship in its recommendations. These protected attributes are tracked for post-hoc fairness monitoring only.
+      </p>
+      {error && <p className="text-rose mb-4">{error}</p>}
+      {!report.length && <p className="text-wash-gray">Loading fairness report...</p>}
+      {report.length > 0 && renderReport()}
+    </div>
+  );
 
-  const diData = report
+  function renderReport() {
+    const diData = report
     .filter((r) => r.min_disparate_impact !== null)
     .map((r) => ({
       name: r.attribute,

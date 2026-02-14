@@ -73,7 +73,12 @@ BUCKET_LABELS = ["Lacking", "Adequate", "Significant", "Exceptional"]
 #   - Tier thresholds below are placeholders from the research prototype and
 #     MUST be recalibrated once the model runs on the full 17K applicant pool.
 SCORE_BUCKET_THRESHOLDS = [6.25, 12.5, 18.75]
-TIER_LABELS = ["Will Not Likely Interview", "Committee Review", "Strong Candidate", "Priority Interview"]
+TIER_LABELS = [
+    "AI: Review Not Recommended",
+    "AI: Committee Review Suggested",
+    "AI: Strong Mission Alignment",
+    "AI: High Priority for Review"
+]
 TIER_COLORS = {0: "#ef4444", 1: "#f59e0b", 2: "#10b981", 3: "#3b82f6"}
 
 # -- Two-stage screening model config ---------------------------------------

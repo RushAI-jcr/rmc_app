@@ -48,8 +48,8 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center bg-ivory">
       <div className="w-full max-w-sm rounded-lg border border-gray bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-legacy-green">RMC Triage</h1>
-          <p className="text-sm text-raw-umber">Admissions Decision Support</p>
+          <h1 className="text-2xl font-bold text-legacy-green">RMC Admissions Assistant</h1>
+          <p className="text-sm text-raw-umber">AI helps you focus on mission-aligned candidates</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

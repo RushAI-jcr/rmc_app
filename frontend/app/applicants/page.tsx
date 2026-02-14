@@ -32,10 +32,10 @@ export default function ApplicantsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Applicants</h2>
+      <h2 className="text-2xl font-bold mb-2">Applicant Review</h2>
       {!showAllTiers && tierFilter === undefined && (
         <p className="text-sm text-raw-umber mb-4">
-          Showing Tier 2 (Strong Candidate) and Tier 3 (Priority Interview) applicants.
+          AI has identified candidates showing strong mission alignment. Your expert review confirms each recommendation.
         </p>
       )}
 
