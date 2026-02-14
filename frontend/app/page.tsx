@@ -36,8 +36,7 @@ export default function DashboardPage() {
     <div>
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
       <p className="text-sm text-raw-umber mb-6">
-        AI-powered insights to help you focus on candidates most aligned with Rush's mission.
-        All recommendations require human review before final decisions.
+        AI narrows the applicant pool to mission-aligned candidates. Only Tier 2 (Recommended) and Tier 3 (High Priority) proceed to human review.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

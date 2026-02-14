@@ -41,7 +41,8 @@ export default function ReviewPage() {
         <div>
           <h2 className="text-2xl font-bold">Guided Review</h2>
           <p className="text-sm text-raw-umber mt-1">
-            AI recommends these candidates for interview consideration. Your expert judgment confirms or adjusts each recommendation.
+            AI has identified {queue.length} high-priority candidates (Tier 2 & 3).
+            Your expert review confirms or adjusts each recommendation before interview invitations.
           </p>
         </div>
         <span className="text-sm text-raw-umber">
