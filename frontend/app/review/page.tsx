@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FlagIncorrect } from "@/components/applicant/flag-incorrect";
-import { getReviewQueue } from "@/lib/api";
+import { getReviewQueue, getNextUnreviewed } from "@/lib/api";
 import type { ReviewQueueItem } from "@/lib/types";
 import { TIER_COLORS } from "@/lib/types";
 
@@ -14,8 +14,14 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getReviewQueue()
-      .then(setQueue)
+    Promise.all([getReviewQueue(), getNextUnreviewed()])
+      .then(([q, next]) => {
+        setQueue(q);
+        if (next) {
+          const idx = q.findIndex((item) => item.amcas_id === next.amcas_id);
+          if (idx >= 0) setCurrentIdx(idx);
+        }
+      })
       .catch((e) => setError(e.message));
   }, []);
 
