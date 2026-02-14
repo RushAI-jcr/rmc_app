@@ -2,7 +2,7 @@
 
 **Production scorer**: Research-grounded atomic prompts (1 dimension per API call)
 **Scale**: 1-4 (no neutral midpoint)
-**Status**: v2-only (v1 deprecated and removed)
+**Status**: v2 atomic scoring pipeline
 
 ---
 
@@ -203,11 +203,6 @@ pipeline/
 └── score_pipeline.py              # Score-only pipeline for new cycles
 ```
 
-**Removed** (v1 deprecated):
-- `rubric_scorer.py` (v1 composite prompts)
-- `run_rubric_scoring_v1_deprecated.py` (v1 runner)
-- `azure_foundry_client.py` (replaced by unified client)
-
 ---
 
 ## Configuration (.env)
@@ -256,19 +251,6 @@ AZURE_OPENAI_API_VERSION=2025-01-01-preview
 ```
 
 ---
-
-## Migration from v1
-
-If you have existing v1 scores (`rubric_scores.json`), you do NOT need to re-score all applicants. The v2 architecture is backward compatible:
-
-1. **FeaturePipeline** auto-detects v1 vs v2 format when loading scores
-2. **v1 scores** work with v2 code (but lack secondary dimensions)
-3. **v2 scores** provide full 21-dimension coverage
-
-To migrate incrementally:
-1. Score 2024 applicants with v2: `python -m pipeline.run_rubric_scoring_v2 --years 2024`
-2. Keep 2022-2023 v1 scores for now
-3. Feature engineering merges both seamlessly
 
 ---
 
