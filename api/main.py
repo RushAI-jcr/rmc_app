@@ -70,7 +70,7 @@ app.add_middleware(
     allow_origins=settings.origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH"],  # Restrict to only methods actually used
-    allow_headers=["Content-Type", "Authorization"],  # Restrict headers
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 app.include_router(auth.router)

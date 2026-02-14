@@ -67,7 +67,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
         key="access_token",
         value=token,
         httponly=True,
-        samesite="strict",
+        samesite="lax",
         secure=settings.environment != "development",
         max_age=settings.jwt_expiration_minutes * 60,
         path="/",
