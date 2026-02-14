@@ -14,7 +14,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from api.services.data_service import DataStore
-from api.services.review_service import load_decisions
 from api.routers import applicants, triage, review, fairness, stats
 from api.routers import auth, ingest
 from api.routers import pipeline as pipeline_router
@@ -41,7 +40,6 @@ async def lifespan(app: FastAPI):
     logger.info("Loading data and models...")
     store = DataStore()
     store.load_all()
-    load_decisions(store)
     app.state.store = store
     logger.info("API ready. Master data: %d rows, Models: %s",
                 len(store.master_data), list(store.model_results.keys()))
@@ -64,6 +62,7 @@ async def add_security_headers(request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     return response
 
 app.add_middleware(

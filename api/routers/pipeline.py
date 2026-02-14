@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from api.db.models import PipelineRun, User
 from api.db.session import get_db
-from api.dependencies import get_current_user
+from api.dependencies import require_admin
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
@@ -26,7 +26,7 @@ class PipelineRunStatus(BaseModel):
 @router.get("/runs/{run_id}")
 def get_run_status(
     run_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> PipelineRunStatus:
     """Get the status of a pipeline run."""
@@ -50,7 +50,7 @@ def get_run_status(
 @router.get("/runs")
 def list_runs(
     session_id: str | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> list[PipelineRunStatus]:
     """List pipeline runs, optionally filtered by session."""

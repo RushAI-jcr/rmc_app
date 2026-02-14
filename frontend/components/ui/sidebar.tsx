@@ -14,20 +14,26 @@ import {
   LogOut,
 } from "lucide-react";
 import { logout } from "@/lib/api";
+import { useUser } from "@/components/auth-guard";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/applicants", label: "Applicants", icon: Users },
-  { href: "/ingest", label: "Ingest", icon: Upload },
-  { href: "/pipeline", label: "Pipeline", icon: Play },
-  { href: "/review", label: "Review", icon: ClipboardCheck },
-  { href: "/fairness", label: "Fairness", icon: Shield },
-  { href: "/compare", label: "Compare", icon: GitCompare },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+  { href: "/applicants", label: "Applicants", icon: Users, adminOnly: false },
+  { href: "/ingest", label: "Ingest", icon: Upload, adminOnly: true },
+  { href: "/pipeline", label: "Pipeline", icon: Play, adminOnly: true },
+  { href: "/review", label: "Review", icon: ClipboardCheck, adminOnly: false },
+  { href: "/fairness", label: "Fairness", icon: Shield, adminOnly: true },
+  { href: "/compare", label: "Compare", icon: GitCompare, adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useUser();
+
+  const visibleItems = navItems.filter(
+    (item) => !item.adminOnly || user?.role === "admin"
+  );
 
   // Hide sidebar on login page
   if (pathname === "/login") return null;
@@ -48,7 +54,7 @@ export function Sidebar() {
         <p className="text-xs text-wash-green">AI-Powered Review Support</p>
       </div>
       <nav className="flex-1 px-3">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
           return (

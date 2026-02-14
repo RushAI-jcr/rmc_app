@@ -1,21 +1,26 @@
 """Stats overview endpoint."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from api.config import PROCESSED_DIR
+from api.db.models import User
+from api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
 @router.get("/overview")
-def stats_overview(request: Request, config: str = "A_Structured") -> dict:
+def stats_overview(
+    request: Request,
+    config: str = "A_Structured",
+    current_user: User = Depends(get_current_user),
+) -> dict:
     """Dashboard overview stats."""
     from api.services.triage_service import get_triage_summary
-    from api.services.prediction_service import build_prediction_table
 
     store = request.app.state.store
     summary = get_triage_summary(config, store)
-    predictions = build_prediction_table(config, store)
+    predictions = store.get_predictions(config)
 
     # Bakeoff comparison
     import pandas as pd

@@ -1,24 +1,24 @@
 """Authentication endpoints: login, logout, current user."""
 
-import time
-from collections import defaultdict
+import logging
 from datetime import datetime, timezone
 
+import redis
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.db.models import User
 from api.db.session import get_db
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, _get_redis
 from api.services.auth_service import create_access_token, verify_password
 from api.services.audit_service import log_action
 from api.settings import settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# Simple in-memory rate limiter for login endpoint
-_login_attempts: dict[str, list[float]] = defaultdict(list)
 _RATE_LIMIT = 5  # max attempts
 _RATE_WINDOW = 60  # per 60 seconds
 
@@ -36,18 +36,21 @@ class UserInfo(BaseModel):
 
 @router.post("/login")
 def login(body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
-    # Rate limit by client IP
+    # Rate limit by client IP using Redis
     client_ip = request.client.host if request.client else "unknown"
-    now = time.monotonic()
-    attempts = _login_attempts[client_ip]
-    # Prune expired entries
-    _login_attempts[client_ip] = [t for t in attempts if now - t < _RATE_WINDOW]
-    if len(_login_attempts[client_ip]) >= _RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Try again later.",
-        )
-    _login_attempts[client_ip].append(now)
+    try:
+        r = _get_redis()
+        key = f"rate:login:{client_ip}"
+        current = r.incr(key)
+        if current == 1:
+            r.expire(key, _RATE_WINDOW)
+        if current > _RATE_LIMIT:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts. Try again later.",
+            )
+    except redis.ConnectionError:
+        logger.warning("Redis unavailable for login rate limiting, skipping")
 
     user = db.query(User).filter(User.username == body.username).first()
     if user is None or not verify_password(body.password, user.password_hash):
@@ -71,7 +74,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
     )
 
     log_action(db, user.id, "login")
-    return {"status": "ok", "username": user.username}
+    return {"status": "ok", "username": user.username, "role": user.role, "access_token": token, "token_type": "bearer"}
 
 
 @router.post("/logout")

@@ -1,12 +1,11 @@
 """Applicant endpoints: list and detail with scorecard data."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.orm import Session
 
-from api.config import (
-    TIER_LABELS,
-    TIER_COLORS,
-    prettify,
-)
+from api.db.models import User
+from api.db.session import get_db
+from api.dependencies import get_current_user
 from api.models.applicant import (
     ApplicantSummary,
     ApplicantDetail,
@@ -16,7 +15,9 @@ from api.models.applicant import (
     ShapDriver,
     FlagInfo,
 )
-from api.services.prediction_service import build_prediction_table, compute_shap_for_applicant
+from api.services.audit_service import log_action
+from api.services.prediction_service import compute_shap_for_applicant
+from api.services.review_service import get_decision_for_applicant
 
 router = APIRouter(prefix="/api/applicants", tags=["applicants"])
 
@@ -90,10 +91,13 @@ def list_applicants(
     cycle_year: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Paginated list of applicants with predictions."""
     store = request.app.state.store
-    predictions = build_prediction_table(config, store)
+    log_action(db, current_user.id, "list_applicants", resource_type="applicant")
+    predictions = store.get_predictions(config)
 
     if cycle_year is not None:
         predictions = [p for p in predictions if p.get("app_year") == cycle_year]
@@ -122,27 +126,31 @@ def get_applicant(
     request: Request,
     amcas_id: int,
     config: str = Query("A_Structured"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> ApplicantDetail:
     """Full scorecard for a single applicant."""
     store = request.app.state.store
-    predictions = build_prediction_table(config, store)
+    log_action(db, current_user.id, "view_applicant", resource_type="applicant", resource_id=str(amcas_id))
+    predictions = store.get_predictions(config)
 
     match = next((p for p in predictions if p["amcas_id"] == amcas_id), None)
     if match is None:
         raise HTTPException(status_code=404, detail=f"Applicant {amcas_id} not found")
 
-    # SHAP drivers
-    shap_drivers = compute_shap_for_applicant(config, amcas_id, store)
+    # SHAP drivers and class probabilities — admin only (B4: strip for reviewers)
+    shap_drivers: list[dict] = []
+    class_probs: list[float] = []
+    if current_user.role == "admin":
+        shap_drivers = compute_shap_for_applicant(config, amcas_id, store)
 
-    # Class probabilities
-    from api.services.prediction_service import get_test_predictions
-    preds = get_test_predictions(config, store)
-    class_probs = []
-    if preds and preds["clf_proba"] is not None:
-        for i, tid in enumerate(preds["test_ids"]):
-            if int(tid) == amcas_id:
-                class_probs = preds["clf_proba"][i].tolist()
-                break
+        from api.services.prediction_service import get_test_predictions
+        preds = get_test_predictions(config, store)
+        if preds and preds["clf_proba"] is not None:
+            for i, tid in enumerate(preds["test_ids"]):
+                if int(tid) == amcas_id:
+                    class_probs = preds["clf_proba"][i].tolist()
+                    break
 
     # Rubric scorecard (reviewer-grouped)
     scorecard = None
@@ -150,14 +158,15 @@ def get_applicant(
     if rubric_data:
         scorecard = _build_rubric_scorecard(rubric_data)
 
-    # Flag info (if previously flagged)
+    # Flag info (if previously flagged) — now from PostgreSQL
     flag_info = None
-    decision_data = store.decisions.get(amcas_id, {})
-    if decision_data.get("decision") == "flag":
+    cycle_year = match.get("app_year", 2024)
+    decision_row = get_decision_for_applicant(db, amcas_id, cycle_year)
+    if decision_row and decision_row.decision == "flag":
         flag_info = FlagInfo(
-            reason=decision_data.get("flag_reason", ""),
-            notes=decision_data.get("notes", ""),
-            flagged_at=decision_data.get("flagged_at"),
+            reason=decision_row.flag_reason or "",
+            notes=decision_row.notes or "",
+            flagged_at=decision_row.created_at.isoformat() if decision_row.created_at else None,
         )
 
     return ApplicantDetail(

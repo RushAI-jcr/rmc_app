@@ -30,7 +30,18 @@ class DataStore:
         self.model_results: dict[str, dict] = {}
         self.rubric_scores: dict = {}
         self.rubric_features: pd.DataFrame = pd.DataFrame()
-        self.decisions: dict[int, dict] = {}  # amcas_id -> {decision, notes}
+        self._prediction_cache: dict[str, list[dict]] = {}
+
+    def get_predictions(self, config_name: str) -> list[dict]:
+        """Return cached predictions, computing on first call per config."""
+        if config_name not in self._prediction_cache:
+            from api.services.prediction_service import build_prediction_table
+            self._prediction_cache[config_name] = build_prediction_table(config_name, self)
+        return self._prediction_cache[config_name]
+
+    def invalidate_prediction_cache(self) -> None:
+        """Clear the prediction cache (call after decisions change or pipeline re-runs)."""
+        self._prediction_cache.clear()
 
     def load_all(self) -> None:
         self._load_master_data()

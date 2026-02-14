@@ -9,11 +9,13 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -63,11 +65,13 @@ class User(Base):
     username = Column(String(150), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="staff")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     last_login = Column(DateTime(timezone=True), nullable=True)
 
     upload_sessions = relationship("UploadSession", back_populates="uploader")
     audit_logs = relationship("AuditLog", back_populates="user")
+    review_decisions = relationship("ReviewDecision", back_populates="reviewer")
 
 
 class UploadSession(Base):
@@ -144,3 +148,25 @@ class AuditLog(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+class ReviewDecision(Base):
+    __tablename__ = "review_decisions"
+    __table_args__ = (
+        UniqueConstraint("amcas_id", "cycle_year", name="uq_review_decisions_applicant_cycle"),
+        Index("ix_review_decisions_cycle_reviewer", "cycle_year", "reviewer_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    amcas_id = Column(Integer, nullable=False)
+    reviewer_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    cycle_year = Column(Integer, nullable=False)
+    decision = Column(String(20), nullable=False)
+    flag_reason = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    predicted_score = Column(Float, nullable=True)
+    predicted_tier = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=_utcnow)
+
+    reviewer = relationship("User", back_populates="review_decisions")

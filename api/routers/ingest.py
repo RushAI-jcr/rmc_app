@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from api.db.models import PipelineRun, UploadSession, User
 from api.db.session import get_db
-from api.dependencies import get_current_user
+from api.dependencies import require_admin
 from api.models.ingest import (
     PipelineRunResponse,
     PreviewData,
@@ -42,7 +42,7 @@ def verify_session_ownership(session: UploadSession, user: User) -> None:
 def upload_files(
     cycle_year: int = Form(...),
     files: list[UploadFile] = File(...),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
     """Upload xlsx files for a new admissions cycle."""
@@ -81,7 +81,7 @@ def upload_files(
 
 @router.get("/sessions")
 def list_sessions(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> list[SessionSummary]:
     """List past upload sessions, most recent first."""
@@ -106,7 +106,7 @@ def list_sessions(
 @router.get("/{session_id}/preview")
 def preview_session(
     session_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> PreviewData:
     """Get preview data for a session. Triggers validation if not yet run."""
@@ -126,7 +126,7 @@ def preview_session(
 @router.get("/{session_id}/validation")
 def get_validation(
     session_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ValidationResult:
     """Get or run validation for a session."""
@@ -147,7 +147,7 @@ def get_validation(
 @router.post("/{session_id}/approve")
 def approve_session(
     session_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> PipelineRunResponse:
     """Approve session and enqueue pipeline run.
@@ -221,7 +221,7 @@ def approve_session(
 @router.post("/{session_id}/retry")
 def retry_session(
     session_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> PipelineRunResponse:
     """Retry a failed session's pipeline."""
@@ -268,7 +268,7 @@ def retry_session(
 def override_file_types(
     session_id: str,
     overrides: dict[str, str],
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
     """Manually override detected file types, then re-validate."""

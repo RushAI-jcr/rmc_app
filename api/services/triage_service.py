@@ -4,14 +4,13 @@ import logging
 
 from api.config import TIER_LABELS, TIER_COLORS, score_to_tier
 from api.services.data_service import DataStore
-from api.services.prediction_service import build_prediction_table
 
 logger = logging.getLogger(__name__)
 
 
 def run_triage(config_name: str, store: DataStore) -> dict:
     """Run triage on the test set and return summary."""
-    predictions = build_prediction_table(config_name, store)
+    predictions = store.get_predictions(config_name)
     if not predictions:
         return {"status": "error", "total_processed": 0, "tier_distribution": {}}
 
@@ -28,7 +27,7 @@ def run_triage(config_name: str, store: DataStore) -> dict:
 
 def get_triage_summary(config_name: str, store: DataStore) -> dict:
     """Get triage summary stats."""
-    predictions = build_prediction_table(config_name, store)
+    predictions = store.get_predictions(config_name)
     if not predictions:
         return {
             "total_applicants": 0,

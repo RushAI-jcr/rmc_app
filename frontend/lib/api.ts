@@ -39,7 +39,7 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
 export async function login(
   username: string,
   password: string,
-): Promise<{ status: string; username: string }> {
+): Promise<{ status: string; username: string; role: string }> {
   return fetchJSON("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
@@ -122,6 +122,12 @@ export async function submitDecision(
     method: "POST",
     body: JSON.stringify({ decision, notes, flag_reason: flagReason || null }),
   });
+}
+
+export async function getNextUnreviewed(config?: string): Promise<ReviewQueueItem | null> {
+  const sp = new URLSearchParams();
+  if (config) sp.set("config", config);
+  return fetchJSON(`/api/review/queue/next?${sp}`);
 }
 
 export async function getFlagSummary(): Promise<{ total_flags: number; by_reason: Record<string, number> }> {

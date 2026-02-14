@@ -1,6 +1,8 @@
 """Pydantic models for review queue and feedback."""
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, model_validator
 
 
 FLAG_REASONS = [
@@ -13,9 +15,20 @@ FLAG_REASONS = [
 
 
 class ReviewDecision(BaseModel):
-    decision: str  # "confirm" or "flag"
+    decision: Literal["confirm", "flag"]
     notes: str = ""
-    flag_reason: str | None = None  # required when decision == "flag"
+    flag_reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_flag_fields(self) -> "ReviewDecision":
+        if self.decision == "flag":
+            if not self.flag_reason:
+                raise ValueError("flag_reason is required when decision is 'flag'")
+            if self.flag_reason not in FLAG_REASONS:
+                raise ValueError(f"flag_reason must be one of: {FLAG_REASONS}")
+            if self.flag_reason == "Other" and len(self.notes) < 10:
+                raise ValueError("Notes must be at least 10 characters when flag_reason is 'Other'")
+        return self
 
 
 class ReviewQueueItem(BaseModel):

@@ -3,36 +3,49 @@
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
+from uuid import UUID
+
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
 
 from api.config import PROCESSED_DIR
+from api.db.models import ReviewDecision as ReviewDecisionModel
 from api.services.data_service import DataStore
-from api.services.prediction_service import build_prediction_table
 
 logger = logging.getLogger(__name__)
 
-DECISIONS_FILE = PROCESSED_DIR / "review_decisions.json"
 FLAGS_FILE = PROCESSED_DIR / "flags_current_cycle.json"
 
 
 def get_review_queue(
     config_name: str,
     store: DataStore,
-    cycle_year: int | None = None,
+    db: Session,
+    cycle_year: int,
 ) -> list[dict]:
     """Get review queue filtered to Tier 2 + Tier 3 only.
 
     Human reviewers should never see Tier 0 or Tier 1 applicants.
     Queue is sorted by: disagreements first, then low confidence.
+    Decisions fetched in a single batch query (C6).
     """
-    predictions = build_prediction_table(config_name, store)
+    predictions = store.get_predictions(config_name)
     if not predictions:
         return []
 
+    # Batch fetch all decisions for this cycle
+    decisions = (
+        db.query(ReviewDecisionModel)
+        .filter(ReviewDecisionModel.cycle_year == cycle_year)
+        .all()
+    )
+    decision_map = {d.amcas_id: d for d in decisions}
+
     queue = []
     for p in predictions:
-        # Filter by cycle year if specified
-        if cycle_year is not None and p.get("app_year") != cycle_year:
+        # Filter by cycle year
+        if p.get("app_year") != cycle_year:
             continue
         # Only Tier 2 (Strong Candidate) and Tier 3 (Priority Interview)
         if p["tier"] < 2:
@@ -46,7 +59,7 @@ def get_review_queue(
         else:
             reason = "Standard review"
 
-        decision_data = store.decisions.get(p["amcas_id"], {})
+        decision_obj = decision_map.get(p["amcas_id"])
 
         item = {
             "amcas_id": p["amcas_id"],
@@ -56,9 +69,9 @@ def get_review_queue(
             "confidence": p["confidence"],
             "clf_reg_agree": p["clf_reg_agree"],
             "priority_reason": reason,
-            "decision": decision_data.get("decision"),
-            "notes": decision_data.get("notes"),
-            "flag_reason": decision_data.get("flag_reason"),
+            "decision": decision_obj.decision if decision_obj else None,
+            "notes": decision_obj.notes if decision_obj else None,
+            "flag_reason": decision_obj.flag_reason if decision_obj else None,
         }
         queue.append(item)
 
@@ -68,29 +81,58 @@ def get_review_queue(
 
 
 def save_decision(
+    db: Session,
     amcas_id: int,
+    user_id: UUID,
+    cycle_year: int,
     decision: str,
     notes: str,
-    store: DataStore,
+    predicted_score: float | None = None,
+    predicted_tier: int | None = None,
     flag_reason: str | None = None,
 ) -> None:
-    """Save a review decision (confirm or flag)."""
-    entry = {
-        "decision": decision,
-        "notes": notes,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    if decision == "flag" and flag_reason:
-        entry["flag_reason"] = flag_reason
-
-    store.decisions[amcas_id] = entry
-    _persist_decisions(store)
+    """Save a review decision using PostgreSQL upsert."""
+    stmt = pg_insert(ReviewDecisionModel).values(
+        amcas_id=amcas_id,
+        reviewer_id=user_id,
+        cycle_year=cycle_year,
+        decision=decision,
+        flag_reason=flag_reason,
+        notes=notes,
+        predicted_score=predicted_score,
+        predicted_tier=predicted_tier,
+    ).on_conflict_do_update(
+        constraint="uq_review_decisions_applicant_cycle",
+        set_={
+            "decision": decision,
+            "flag_reason": flag_reason,
+            "notes": notes,
+            "reviewer_id": user_id,
+            "predicted_score": predicted_score,
+            "predicted_tier": predicted_tier,
+            "updated_at": func.now(),
+        },
+    )
+    db.execute(stmt)
+    db.commit()
 
     if decision == "flag":
         _append_flag(amcas_id, flag_reason or "", notes)
         logger.info("Flagged applicant %d: %s", amcas_id, flag_reason)
     else:
         logger.info("Confirmed score for applicant %d", amcas_id)
+
+
+def get_decision_for_applicant(db: Session, amcas_id: int, cycle_year: int) -> ReviewDecisionModel | None:
+    """Get the decision for a specific applicant in a cycle."""
+    return (
+        db.query(ReviewDecisionModel)
+        .filter(
+            ReviewDecisionModel.amcas_id == amcas_id,
+            ReviewDecisionModel.cycle_year == cycle_year,
+        )
+        .first()
+    )
 
 
 def _append_flag(amcas_id: int, reason: str, notes: str) -> None:
@@ -125,19 +167,3 @@ def get_flag_summary() -> dict:
         by_reason[reason] = by_reason.get(reason, 0) + 1
 
     return {"total_flags": len(flags), "by_reason": by_reason}
-
-
-def _persist_decisions(store: DataStore) -> None:
-    """Write decisions to disk."""
-    serializable = {str(k): v for k, v in store.decisions.items()}
-    with open(DECISIONS_FILE, "w") as f:
-        json.dump(serializable, f, indent=2)
-
-
-def load_decisions(store: DataStore) -> None:
-    """Load decisions from disk at startup."""
-    if DECISIONS_FILE.exists():
-        with open(DECISIONS_FILE) as f:
-            data = json.load(f)
-        store.decisions = {int(k): v for k, v in data.items()}
-        logger.info("Loaded %d review decisions", len(store.decisions))

@@ -28,8 +28,11 @@ function LoginForm() {
     setError(null);
 
     try {
-      await login(username, password);
-      router.push(returnTo);
+      const result = await login(username, password);
+      // Role-aware default redirect: reviewers -> /review, admins -> /ingest
+      const defaultPath = result.role === "admin" ? "/ingest" : "/review";
+      const target = searchParams.get("returnTo") || defaultPath;
+      router.push(target);
     } catch {
       setError("Invalid username or password");
       submitting.current = false;
