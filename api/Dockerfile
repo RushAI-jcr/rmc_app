@@ -11,6 +11,9 @@ COPY pipeline/ ./pipeline/
 COPY api/ ./api/
 COPY data/ ./data/
 
-# Run uvicorn
+# Entrypoint runs migrations before starting the app
+RUN chmod +x api/entrypoint.sh
+ENTRYPOINT ["api/entrypoint.sh"]
+
 EXPOSE 8000
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

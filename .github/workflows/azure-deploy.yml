@@ -68,23 +68,21 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd api
-          pip install -r requirements.txt
+          pip install -r api/requirements.txt
           pip install pytest pytest-cov pytest-asyncio httpx
 
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rmc_triage_test
           REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET: test-secret
+          JWT_SECRET: test-secret-key-must-be-at-least-32-characters-long
         run: |
-          cd api
-          pytest --cov=api --cov-report=xml --cov-report=term
+          pytest tests/ -v --tb=short --cov=pipeline --cov=api --cov-report=xml --cov-report=term
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          file: ./api/coverage.xml
+          file: ./coverage.xml
           flags: api
         continue-on-error: true
 
@@ -191,7 +189,7 @@ jobs:
           docker run --rm \
             -e DATABASE_URL="$DATABASE_URL" \
             ${{ env.ACR_NAME }}.azurecr.io/rmc-api:${{ steps.get-tag.outputs.IMAGE_TAG }} \
-            sh -c "pip install alembic && alembic upgrade head"
+            sh -c "cd /app && alembic -c api/alembic.ini upgrade head"
 
       - name: Deploy Celery Worker
         run: |
